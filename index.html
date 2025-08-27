@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arizona ZIP Codes - Shaded Map</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    .legend {
+      background: white;
+      padding: .5rem .75rem;
+      border-radius: .5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+      font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+    .leaflet-tooltip.zip-label {
+      font-weight: 600;
+      background: rgba(255,255,255,.85);
+      border: 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+      padding: 2px 6px;
+    }
+  </style>
+</head>
+<body>
+<div id="map" aria-label="Map of Arizona ZIP codes"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(async function () {
+  // Base map
+  const map = L.map('map', { scrollWheelZoom: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Target ZIPs
+  const wanted = new Set(["85144", "85147", "85201", "85202", "85203", "85204", "85205", "85210", "85213", "85215", "85248", "85249", "85256", "85286"]);
+
+  // Source: OpenDataDE state ZIP GeoJSON (derived from Census ZCTA shapefiles)
+  const src = "https://raw.githubusercontent.com/OpenDataDE/State-zip-code-GeoJSON/master/az_arizona_zip_codes_geo.min.json";
+
+  // Fetch and filter features for our ZIPs
+  let gj;
+  try {
+    const res = await fetch(src);
+    gj = await res.json();
+  } catch (e) {
+    alert("Failed to load ZIP boundaries.\nPlease ensure you are online.\n" + e);
+    return;
+  }
+
+  const features = (gj.features || []).filter(f => {
+    const p = f.properties || {};
+    const zip = p.ZCTA5CE10 || p.ZCTA5CE || p.zip || p.ZIPCODE || p.ZIP || p.postalCode;
+    return zip && wanted.has(String(zip));
+  });
+
+  const colorMap = { 
+    "85144": "#1f77b4", "85147": "#ff7f0e", "85201": "#2ca02c", "85202": "#d62728", 
+    "85203": "#9467bd", "85204": "#8c564b", "85205": "#e377c2", "85210": "#7f7f7f", 
+    "85213": "#bcbd22", "85215": "#17becf", "85248": "#aec7e8", "85249": "#ffbb78", 
+    "85256": "#98df8a", "85286": "#ff9896" 
+  };
+
+  const layer = L.geoJSON(features, {
+    style: f => ({
+      color: "#222",
+      weight: 1.5,
+      fillColor: colorMap[String(
+        (f.properties && (f.properties.ZCTA5CE10 || f.properties.ZCTA5CE || f.properties.zip || f.properties.ZIPCODE || f.properties.ZIP || f.properties.postalCode))
+      )] || "#8e44ad",
+      fillOpacity: 0.35
+    }),
+    onEachFeature: (feature, layer) => {
+      const p = feature.properties || {};
+      const zip = p.ZCTA5CE10 || p.ZCTA5CE || p.zip || p.ZIPCODE || p.ZIP || p.postalCode || "ZIP";
+      const name = p.PO_NAME || p.city || "";
+      layer.bindPopup(`<strong>ZIP ${zip}</strong>${name ? " – " + name : ""}`);
+      // Add a lightweight label at the polygon's center
+      try {
+        const center = layer.getBounds().getCenter();
+        L.tooltip({permanent:true, direction:'center', className:'zip-label'})
+          .setContent(zip)
+          .setLatLng(center)
+          .addTo(map);
+      } catch {}
+    }
+  }).addTo(map);
+
+  // Fit to bounds
+  if (features.length) {
+    map.fitBounds(layer.getBounds(), { padding: [20,20] });
+  } else {
+    map.setView([33.3, -111.8], 10); // Arizona Phoenix metro area fallback
+  }
+
+  // Legend
+  const legend = L.control({ position: 'topright' });
+  legend.onAdd = function () {
+    const div = L.DomUtil.create('div', 'legend');
+    div.innerHTML = `
+      <div style="margin-bottom:.25rem;"><strong>Shaded ZIPs</strong></div>
+      ${Object.entries(colorMap).map(([zip, color]) => 
+        `<div><span style="display:inline-block;width:12px;height:12px;background:${color};border:1px solid #222;margin-right:6px;vertical-align:middle;"></span>${zip}</div>`
+      ).join('')}
+      <div style="margin-top:.5rem;font-size:12px;color:#555;">Boundaries: OpenDataDE (Census ZCTA)</div>
+    `;
+    return div;
+  };
+  legend.addTo(map);
+})();
+</script>
+</body>
+</html>

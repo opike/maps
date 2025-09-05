@@ -132,8 +132,28 @@
     "85249": "#ffbb78", "85256": "#98df8a", "85286": "#ff9896" 
   };
 
-  // Store town names for legend
-  const zipTownMap = {};
+  // Hard-coded mapping of ZIP codes to town/city names
+  const zipTownMap = {
+    "85118": "Ahwatukee",
+    "85119": "Ahwatukee",
+    "85120": "Ahwatukee",
+    "85140": "Chandler",
+    "85142": "Chandler",
+    "85144": "Chandler",
+    "85147": "Chandler",
+    "85201": "Mesa",
+    "85202": "Mesa",
+    "85203": "Mesa",
+    "85204": "Mesa",
+    "85205": "Mesa",
+    "85210": "Mesa",
+    "85213": "Mesa",
+    "85215": "Mesa",
+    "85248": "Chandler",
+    "85249": "Chandler",
+    "85256": "Chandler",
+    "85286": "Chandler"
+  };
 
   const layer = L.geoJSON(features, {
     style: f => ({
@@ -147,22 +167,7 @@
     onEachFeature: (feature, layer) => {
       const p = feature.properties || {};
       const zip = p.ZCTA5CE10 || p.ZCTA5CE || p.zip || p.ZIPCODE || p.ZIP || p.postalCode || "ZIP";
-      
-      // Debug: log available properties for the first few features
-      if (Object.keys(zipTownMap).length < 3) {
-        console.log('Available properties for ZIP', zip, ':', Object.keys(p));
-        console.log('Full properties:', p);
-      }
-      
-      // Try various common field names for city/town
-      const name = p.PO_NAME || p.city || p.NAME || p.CITY || p.name || 
-                   p.po_name || p.City || p.town || p.TOWN || p.place || p.PLACE ||
-                   p.locality || p.LOCALITY || "";
-      
-      // Store town name for legend
-      if (zip && name) {
-        zipTownMap[String(zip)] = name;
-      }
+      const name = zipTownMap[String(zip)] || "";
       
       layer.bindPopup(`<strong>ZIP ${zip}</strong>${name ? " – " + name : ""}`);
       // Add a lightweight label at the polygon's center
@@ -175,10 +180,6 @@
       } catch {}
     }
   }).addTo(map);
-
-  // Debug: Show what we found in zipTownMap
-  console.log('Final zipTownMap:', zipTownMap);
-  console.log('Number of ZIP codes with town names:', Object.keys(zipTownMap).length);
 
   // Fit to bounds
   if (features.length) {

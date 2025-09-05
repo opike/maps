@@ -134,13 +134,13 @@
 
   // Hard-coded mapping of ZIP codes to town/city names
   const zipTownMap = {
-    "85118": "Ahwatukee",
-    "85119": "Ahwatukee",
-    "85120": "Ahwatukee",
-    "85140": "Chandler",
-    "85142": "Chandler",
-    "85144": "Chandler",
-    "85147": "Chandler",
+    "85118": "Gold Canyon",
+    "85119": "Apache Junction",
+    "85120": "Apache Junction",
+    "85140": "Queen Creek/San Tan Valley",
+    "85142": "Queen Creek",
+    "85144": "San Tan Valley",
+    "85147": "Sacaton",
     "85201": "Mesa",
     "85202": "Mesa",
     "85203": "Mesa",
@@ -151,7 +151,7 @@
     "85215": "Mesa",
     "85248": "Chandler",
     "85249": "Chandler",
-    "85256": "Chandler",
+    "85256": "Scottsdale",
     "85286": "Chandler"
   };
 
@@ -193,7 +193,7 @@
   legend.onAdd = function () {
     const div = L.DomUtil.create('div', 'legend');
     div.innerHTML = `
-      <div style="margin-bottom:.25rem;"><strong>Shaded ZIPs v4</strong></div>
+      <div style="margin-bottom:.25rem;"><strong>Shaded ZIPs v5</strong></div>
       ${Object.entries(colorMap).map(([zip, color]) => {
         const townName = zipTownMap[zip] || '';
         const displayText = townName ? `${zip} - ${townName}` : zip;

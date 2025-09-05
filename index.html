@@ -147,7 +147,17 @@
     onEachFeature: (feature, layer) => {
       const p = feature.properties || {};
       const zip = p.ZCTA5CE10 || p.ZCTA5CE || p.zip || p.ZIPCODE || p.ZIP || p.postalCode || "ZIP";
-      const name = p.PO_NAME || p.city || "";
+      
+      // Debug: log available properties for the first few features
+      if (Object.keys(zipTownMap).length < 3) {
+        console.log('Available properties for ZIP', zip, ':', Object.keys(p));
+        console.log('Full properties:', p);
+      }
+      
+      // Try various common field names for city/town
+      const name = p.PO_NAME || p.city || p.NAME || p.CITY || p.name || 
+                   p.po_name || p.City || p.town || p.TOWN || p.place || p.PLACE ||
+                   p.locality || p.LOCALITY || "";
       
       // Store town name for legend
       if (zip && name) {
@@ -165,6 +175,10 @@
       } catch {}
     }
   }).addTo(map);
+
+  // Debug: Show what we found in zipTownMap
+  console.log('Final zipTownMap:', zipTownMap);
+  console.log('Number of ZIP codes with town names:', Object.keys(zipTownMap).length);
 
   // Fit to bounds
   if (features.length) {

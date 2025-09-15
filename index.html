@@ -276,6 +276,7 @@
       <div>
         <strong>${point.name}</strong><br>
         <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
+        <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
         <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
       </div>
     `);
@@ -332,6 +333,7 @@
         <div>
           <strong>${point.name}</strong><br>
           <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
+          <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
           <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
         </div>
       `);
@@ -361,6 +363,7 @@
             <div style="color: #666; font-size: 11px;">
               ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}
               <button onclick="zoomToSavedPoint(${point.id})" style="margin-left: 8px; padding: 1px 4px; font-size: 10px; background: #007cff; color: white; border: none; border-radius: 2px; cursor: pointer;">Zoom</button>
+              <button onclick="editSavedPoint(${point.id})" style="margin-left: 4px; padding: 1px 4px; font-size: 10px; background: #28a745; color: white; border: none; border-radius: 2px; cursor: pointer;">Edit</button>
               <button onclick="removeSavedPoint(${point.id})" style="margin-left: 4px; padding: 1px 4px; font-size: 10px; background: #d62728; color: white; border: none; border-radius: 2px; cursor: pointer;">×</button>
             </div>
           </div>
@@ -438,10 +441,41 @@
     }
   };
   
+  // Edit a saved point name
+  window.editSavedPoint = function(pointId) {
+    const savedPoints = loadSavedPoints();
+    const point = savedPoints.find(p => p.id === pointId);
+    if (!point) return;
+    
+    const newName = prompt('Edit point name:', point.name);
+    if (newName !== null && newName.trim() !== '') {
+      // Update the point name
+      point.name = newName.trim();
+      saveSavedPoints(savedPoints);
+      
+      // Update the marker popup
+      const marker = savedMarkers.find(m => m.pointId === pointId);
+      if (marker) {
+        marker.bindPopup(`
+          <div>
+            <strong>${point.name}</strong><br>
+            <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
+            <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
+            <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
+          </div>
+        `);
+      }
+      
+      // Update the saved points list
+      updateSavedPointsList();
+    }
+  };
+  
   // Make functions global for onclick handlers
   window.removeSavedPoint = removeSavedPoint;
   window.zoomToSavedPoint = zoomToSavedPoint;
   window.clearAllSavedPoints = clearAllSavedPoints;
+  window.editSavedPoint = editSavedPoint;
   
   window.searchBusinesses = async function() {
     const query = document.getElementById('searchInput').value.trim();

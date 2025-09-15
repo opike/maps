@@ -126,6 +126,31 @@
       background: #e0e0e0;
       color: #666;
     }
+    .search-clear-button {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      font-size: 16px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1002;
+    }
+    .search-clear-button:hover {
+      background: #f0f0f0;
+      color: #666;
+    }
+    .search-clear-button:active {
+      background: #e0e0e0;
+    }
     .saved-points-container {
       position: absolute;
       bottom: 10px;
@@ -147,6 +172,7 @@
 <div class="search-container">
   <div class="search-input-container">
     <input type="text" class="search-input" placeholder="Search for businesses (e.g., restaurants, gas stations, pharmacies)" id="searchInput" autocomplete="off">
+    <button class="search-clear-button" onclick="clearSearch()" id="searchClearButton" style="display: none;" title="Clear search">×</button>
     <div class="search-history-dropdown" id="searchHistoryDropdown"></div>
   </div>
   <button class="search-button" onclick="searchBusinesses()">Search</button>
@@ -373,6 +399,41 @@
     if (confirm('Clear all search history?')) {
       saveSearchHistory([]);
       updateSearchHistoryDropdown();
+    }
+  }
+  
+  // Clear search input and markers
+  function clearSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const clearButton = document.getElementById('searchClearButton');
+    
+    // Clear input
+    searchInput.value = '';
+    
+    // Clear results
+    searchResults.innerHTML = '';
+    
+    // Hide clear button
+    clearButton.style.display = 'none';
+    
+    // Hide search history dropdown
+    hideSearchHistoryDropdown();
+    
+    // Clear search markers from map
+    searchMarkers.forEach(marker => map.removeLayer(marker));
+    searchMarkers = [];
+  }
+  
+  // Update clear button visibility
+  function updateClearButtonVisibility() {
+    const searchInput = document.getElementById('searchInput');
+    const clearButton = document.getElementById('searchClearButton');
+    
+    if (searchInput.value.trim() !== '') {
+      clearButton.style.display = 'flex';
+    } else {
+      clearButton.style.display = 'none';
     }
   }
   
@@ -905,6 +966,14 @@
     showSearchHistoryDropdown();
   });
   
+  // Update clear button visibility on input
+  searchInput.addEventListener('input', function() {
+    updateClearButtonVisibility();
+  });
+  
+  // Initialize clear button visibility
+  updateClearButtonVisibility();
+  
   // Hide search history when clicking outside
   document.addEventListener('click', function(e) {
     const searchContainer = document.querySelector('.search-container');
@@ -917,6 +986,7 @@
   window.selectSearchHistoryItem = selectSearchHistoryItem;
   window.removeSearchHistoryItem = removeSearchHistoryItem;
   window.clearSearchHistory = clearSearchHistory;
+  window.clearSearch = clearSearch;
 })();
 </script>
 </body>

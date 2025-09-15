@@ -237,11 +237,46 @@
   function loadSavedPoints() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
+      const points = saved ? JSON.parse(saved) : [];
+      // Ensure backward compatibility by adding default color to existing points
+      return points.map(point => ({
+        ...point,
+        color: point.color || '#d62728'
+      }));
     } catch (e) {
       console.error('Error loading saved points:', e);
       return [];
     }
+  }
+  
+  // Create a colored marker icon
+  function createColoredMarkerIcon(color) {
+    return L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div style="
+        background-color: ${color};
+        width: 25px;
+        height: 25px;
+        border-radius: 50% 50% 50% 0;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        transform: rotate(-45deg);
+        position: relative;
+      ">
+        <div style="
+          width: 6px;
+          height: 6px;
+          background-color: white;
+          border-radius: 50%;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(45deg);
+        "></div>
+      </div>`,
+      iconSize: [25, 25],
+      iconAnchor: [12, 24]
+    });
   }
   
   // Save points to local storage
@@ -254,12 +289,13 @@
   }
   
   // Add a saved point
-  function addSavedPoint(lat, lng, name = '') {
+  function addSavedPoint(lat, lng, name = '', color = '#d62728') {
     const point = {
       id: Date.now(),
       lat: lat,
       lng: lng,
       name: name || `Point ${Date.now()}`,
+      color: color,
       timestamp: new Date().toISOString()
     };
     
@@ -267,9 +303,10 @@
     savedPoints.push(point);
     saveSavedPoints(savedPoints);
     
-    // Create marker
+    // Create marker with custom color
     const marker = L.marker([lat, lng], {
-      draggable: true
+      draggable: true,
+      icon: createColoredMarkerIcon(point.color)
     }).addTo(map);
     
     marker.bindPopup(`
@@ -326,7 +363,8 @@
     const savedPoints = loadSavedPoints();
     savedPoints.forEach(point => {
       const marker = L.marker([point.lat, point.lng], {
-        draggable: true
+        draggable: true,
+        icon: createColoredMarkerIcon(point.color)
       }).addTo(map);
       
       marker.bindPopup(`
@@ -441,21 +479,148 @@
     }
   };
   
-  // Edit a saved point name
+  // Edit a saved point name and coordinates
   window.editSavedPoint = function(pointId) {
     const savedPoints = loadSavedPoints();
     const point = savedPoints.find(p => p.id === pointId);
     if (!point) return;
     
-    const newName = prompt('Edit point name:', point.name);
-    if (newName !== null && newName.trim() !== '') {
-      // Update the point name
-      point.name = newName.trim();
+    // Create a more detailed edit dialog
+    const editDialog = `
+      <div style="font-family: system-ui, -apple-system, sans-serif;">
+        <h3 style="margin: 0 0 15px 0; font-size: 16px;">Edit Point</h3>
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; margin-bottom: 3px; font-weight: 600; font-size: 12px;">Name:</label>
+          <input type="text" id="editName" value="${point.name}" style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px;">
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; margin-bottom: 3px; font-weight: 600; font-size: 12px;">Latitude:</label>
+          <input type="number" id="editLat" value="${point.lat}" step="any" style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px;">
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; margin-bottom: 3px; font-weight: 600; font-size: 12px;">Longitude:</label>
+          <input type="number" id="editLng" value="${point.lng}" step="any" style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px;">
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 3px; font-weight: 600; font-size: 12px;">Marker Color:</label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="color" id="editColor" value="${point.color}" style="width: 40px; height: 30px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;">
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+              <div onclick="document.getElementById('editColor').value='#d62728'" style="width: 20px; height: 20px; background: #d62728; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Red"></div>
+              <div onclick="document.getElementById('editColor').value='#2ca02c'" style="width: 20px; height: 20px; background: #2ca02c; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Green"></div>
+              <div onclick="document.getElementById('editColor').value='#1f77b4'" style="width: 20px; height: 20px; background: #1f77b4; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Blue"></div>
+              <div onclick="document.getElementById('editColor').value='#ff7f0e'" style="width: 20px; height: 20px; background: #ff7f0e; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Orange"></div>
+              <div onclick="document.getElementById('editColor').value='#9467bd'" style="width: 20px; height: 20px; background: #9467bd; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Purple"></div>
+              <div onclick="document.getElementById('editColor').value='#8c564b'" style="width: 20px; height: 20px; background: #8c564b; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Brown"></div>
+            </div>
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <button onclick="cancelEdit()" style="margin-right: 8px; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Cancel</button>
+          <button onclick="saveEdit(${point.id})" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Save</button>
+        </div>
+      </div>
+    `;
+    
+    // Create a modal-like overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'editOverlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 2000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    `;
+    
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      min-width: 300px;
+      max-width: 400px;
+    `;
+    
+    dialog.innerHTML = editDialog;
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    
+    // Focus the name input
+    setTimeout(() => {
+      document.getElementById('editName').focus();
+      document.getElementById('editName').select();
+    }, 100);
+  };
+  
+  // Cancel edit dialog
+  window.cancelEdit = function() {
+    const overlay = document.getElementById('editOverlay');
+    if (overlay) {
+      overlay.remove();
+    }
+  };
+  
+  // Save edited point
+  window.saveEdit = function(pointId) {
+    const nameInput = document.getElementById('editName');
+    const latInput = document.getElementById('editLat');
+    const lngInput = document.getElementById('editLng');
+    const colorInput = document.getElementById('editColor');
+    
+    if (!nameInput || !latInput || !lngInput || !colorInput) return;
+    
+    const newName = nameInput.value.trim();
+    const newLat = parseFloat(latInput.value);
+    const newLng = parseFloat(lngInput.value);
+    const newColor = colorInput.value;
+    
+    // Validation
+    if (!newName) {
+      alert('Please enter a name for the point.');
+      nameInput.focus();
+      return;
+    }
+    
+    if (isNaN(newLat) || newLat < -90 || newLat > 90) {
+      alert('Please enter a valid latitude between -90 and 90.');
+      latInput.focus();
+      return;
+    }
+    
+    if (isNaN(newLng) || newLng < -180 || newLng > 180) {
+      alert('Please enter a valid longitude between -180 and 180.');
+      lngInput.focus();
+      return;
+    }
+    
+    // Update the saved point
+    const savedPoints = loadSavedPoints();
+    const point = savedPoints.find(p => p.id === pointId);
+    if (point) {
+      const oldLat = point.lat;
+      const oldLng = point.lng;
+      
+      point.name = newName;
+      point.lat = newLat;
+      point.lng = newLng;
       saveSavedPoints(savedPoints);
       
-      // Update the marker popup
+      // Update the marker position and popup if coordinates changed
       const marker = savedMarkers.find(m => m.pointId === pointId);
       if (marker) {
+        // Update marker position if coordinates changed
+        if (oldLat !== newLat || oldLng !== newLng) {
+          marker.setLatLng([newLat, newLng]);
+        }
+        
+        // Update popup content
         marker.bindPopup(`
           <div>
             <strong>${point.name}</strong><br>
@@ -468,6 +633,9 @@
       
       // Update the saved points list
       updateSavedPointsList();
+      
+      // Close the edit dialog
+      cancelEdit();
     }
   };
   
@@ -476,6 +644,8 @@
   window.zoomToSavedPoint = zoomToSavedPoint;
   window.clearAllSavedPoints = clearAllSavedPoints;
   window.editSavedPoint = editSavedPoint;
+  window.cancelEdit = cancelEdit;
+  window.saveEdit = saveEdit;
   
   window.searchBusinesses = async function() {
     const query = document.getElementById('searchInput').value.trim();

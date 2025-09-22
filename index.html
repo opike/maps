@@ -105,26 +105,12 @@
       cursor: pointer;
       font-size: 13px;
       border-bottom: 1px solid #f0f0f0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
     }
     .search-history-item:hover {
       background: #f5f5f5;
     }
     .search-history-item:last-child {
       border-bottom: none;
-    }
-    .search-history-clear {
-      color: #999;
-      font-size: 11px;
-      cursor: pointer;
-      padding: 1px 3px;
-      border-radius: 2px;
-    }
-    .search-history-clear:hover {
-      background: #e0e0e0;
-      color: #666;
     }
     .search-clear-button {
       position: absolute;
@@ -171,7 +157,7 @@
 <div id="map" aria-label="Map of Arizona ZIP codes"></div>
 <div class="search-container">
   <div class="search-input-container">
-    <input type="text" class="search-input" placeholder="Search for businesses (e.g., restaurants, gas stations, pharmacies)" id="searchInput" autocomplete="off">
+    <input type="text" class="search-input" placeholder="Search for businesses or addresses (e.g., restaurants, 123 Main St, Phoenix AZ)" id="searchInput" autocomplete="off">
     <button class="search-clear-button" onclick="clearSearch()" id="searchClearButton" style="display: none;" title="Clear search">×</button>
     <div class="search-history-dropdown" id="searchHistoryDropdown"></div>
   </div>
@@ -358,7 +344,6 @@
     dropdown.innerHTML = history.map(item => `
       <div class="search-history-item" onclick="selectSearchHistoryItem('${item.replace(/'/g, "\\'")}')">
         <span>${item}</span>
-        <span class="search-history-clear" onclick="removeSearchHistoryItem('${item.replace(/'/g, "\\'")}'); event.stopPropagation();" title="Remove from history">×</span>
       </div>
     `).join('');
   }
@@ -370,13 +355,6 @@
     searchBusinesses();
   }
   
-  // Remove search history item
-  function removeSearchHistoryItem(query) {
-    const history = loadSearchHistory();
-    const filteredHistory = history.filter(item => item !== query);
-    saveSearchHistory(filteredHistory);
-    updateSearchHistoryDropdown();
-  }
   
   // Show search history dropdown
   function showSearchHistoryDropdown() {
@@ -881,34 +859,128 @@
     searchMarkers = [];
     
     try {
-      // Get current map bounds to limit search to visible area
-      const bounds = map.getBounds();
-      const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+      // Determine if this looks like an address search vs business search
+      const isAddressLike = /\d/.test(query) || /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|way|ct|court|pl|place)\b/i.test(query);
       
-      // Search using Nominatim API
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&bounded=1&viewbox=${bbox}&limit=10&addressdetails=1&extratags=1`
-      );
+      let results = [];
       
-      if (!response.ok) {
-        throw new Error('Search failed');
+      // First, try a bounded search for businesses (to prioritize nearby results)
+      if (!isAddressLike) {
+        try {
+          const bounds = map.getBounds();
+          const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+          const boundedUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&bounded=1&viewbox=${bbox}&limit=8&addressdetails=1&extratags=1&countrycodes=us`;
+          const boundedResponse = await fetch(boundedUrl);
+          if (boundedResponse.ok) {
+            results = await boundedResponse.json();
+          }
+        } catch (e) {
+          console.log('Bounded search failed, continuing with broader search');
+        }
       }
       
-      const results = await response.json();
+      // If we don't have enough results, do a broader search within Arizona
+      if (results.length < 5) {
+        let broadQuery = query;
+        
+        // For address searches, be more specific about Arizona if not already included
+        if (isAddressLike && !/(arizona|az|phoenix|mesa|chandler|scottsdale|tempe|glendale|peoria|gilbert)\b/i.test(query)) {
+          // Add Arizona context for address searches
+          broadQuery = query + ', Arizona';
+        }
+        
+        const broadSearchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(broadQuery)}&limit=15&addressdetails=1&extratags=1&countrycodes=us`;
+        const broadResponse = await fetch(broadSearchUrl);
+        
+        if (!broadResponse.ok) {
+          throw new Error('Search failed');
+        }
+        
+        const broadResults = await broadResponse.json();
+        
+        // Combine results, avoiding duplicates
+        const existingIds = new Set(results.map(r => r.place_id));
+        const newResults = broadResults.filter(r => !existingIds.has(r.place_id));
+        results = [...results, ...newResults];
+      }
+      
+      // If still no results and it's an address search, try with different variations
+      if (results.length === 0 && isAddressLike) {
+        // Try searching without street suffixes first
+        const simplifiedQuery = query.replace(/\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|way|ct|court|pl|place)\b/gi, '').trim();
+        if (simplifiedQuery !== query && simplifiedQuery.length > 0) {
+          const simplifiedUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(simplifiedQuery + ', Arizona')}&limit=10&addressdetails=1&extratags=1&countrycodes=us`;
+          const simplifiedResponse = await fetch(simplifiedUrl);
+          if (simplifiedResponse.ok) {
+            const simplifiedResults = await simplifiedResponse.json();
+            results = [...results, ...simplifiedResults];
+          }
+        }
+      }
       
       if (results.length === 0) {
-        resultsDiv.innerHTML = '<div style="color: #999; font-size: 12px;">No results found</div>';
+        resultsDiv.innerHTML = '<div style="color: #999; font-size: 12px;">No results found. Try including city name (e.g., "123 Main St, Phoenix") or search for nearby businesses.</div>';
+        console.log('No search results found for query:', query);
         return;
       }
       
-      // Display results
+      console.log(`Found ${results.length} results for query: "${query}"`);
+      console.log('Results:', results.map(r => ({ name: r.display_name, type: r.type, class: r.class })));
+      
+      // Sort results to prioritize addresses for address-like queries and businesses for business queries
+      results.sort((a, b) => {
+        if (isAddressLike) {
+          // For address searches, prioritize house numbers and addresses
+          const aIsAddress = a.type === 'house' || a.class === 'place' || /\d+/.test(a.display_name);
+          const bIsAddress = b.type === 'house' || b.class === 'place' || /\d+/.test(b.display_name);
+          if (aIsAddress && !bIsAddress) return -1;
+          if (!aIsAddress && bIsAddress) return 1;
+        } else {
+          // For business searches, prioritize amenities and shops
+          const aIsBusiness = a.class === 'amenity' || a.class === 'shop' || a.class === 'tourism';
+          const bIsBusiness = b.class === 'amenity' || b.class === 'shop' || b.class === 'tourism';
+          if (aIsBusiness && !bIsBusiness) return -1;
+          if (!aIsBusiness && bIsBusiness) return 1;
+        }
+        return 0;
+      });
+      
+      // Limit to top 10 results after sorting
+      results = results.slice(0, 10);
+      
+      // Helper function to get result type icon and label
+      function getResultTypeInfo(result) {
+        if (result.class === 'amenity') {
+          return { icon: '🏪', label: 'Business' };
+        } else if (result.class === 'shop') {
+          return { icon: '🛍️', label: 'Shop' };
+        } else if (result.class === 'tourism') {
+          return { icon: '🏛️', label: 'Tourism' };
+        } else if (result.type === 'house' || /\d+/.test(result.display_name.split(',')[0])) {
+          return { icon: '🏠', label: 'Address' };
+        } else if (result.class === 'highway') {
+          return { icon: '🛣️', label: 'Road' };
+        } else if (result.class === 'place') {
+          return { icon: '📍', label: 'Place' };
+        } else {
+          return { icon: '📍', label: 'Location' };
+        }
+      }
+      
+      // Display results with type indicators
       resultsDiv.innerHTML = results.map((result, index) => {
         const name = result.display_name.split(',')[0];
         const address = result.display_name.split(',').slice(1, 3).join(',');
+        const typeInfo = getResultTypeInfo(result);
+        
         return `
           <div class="search-result-item">
             <div onclick="zoomToResult(${index})" style="flex: 1; cursor: pointer;">
-              <div style="font-weight: 600;">${name}</div>
+              <div style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                <span style="font-size: 12px;">${typeInfo.icon}</span>
+                <span>${name}</span>
+                <span style="font-size: 10px; color: #888; font-weight: normal;">${typeInfo.label}</span>
+              </div>
               <div style="font-size: 11px; color: #666;">${address}</div>
             </div>
             <button onclick="saveSearchResult(${index}); event.stopPropagation();" style="margin-left: 8px; padding: 2px 6px; font-size: 10px; background: #28a745; color: white; border: none; border-radius: 2px; cursor: pointer; flex-shrink: 0;">Save</button>
@@ -916,12 +988,78 @@
         `;
       }).join('');
       
-      // Add markers to map
+      // Add markers to map with different colors for different types
       results.forEach((result, index) => {
         const name = result.display_name.split(',')[0];
-        const marker = L.marker([result.lat, result.lon])
+        const typeInfo = getResultTypeInfo(result);
+        
+        // Create custom icon based on result type
+        let markerIcon;
+        if (result.class === 'amenity' || result.class === 'shop' || result.class === 'tourism') {
+          // Blue markers for businesses
+          markerIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="
+              background-color: #007cff;
+              width: 25px;
+              height: 25px;
+              border-radius: 50% 50% 50% 0;
+              border: 2px solid white;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              transform: rotate(-45deg);
+              position: relative;
+            ">
+              <div style="
+                width: 6px;
+                height: 6px;
+                background-color: white;
+                border-radius: 50%;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(45deg);
+              "></div>
+            </div>`,
+            iconSize: [25, 25],
+            iconAnchor: [12, 24]
+          });
+        } else {
+          // Green markers for addresses and other locations
+          markerIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="
+              background-color: #28a745;
+              width: 25px;
+              height: 25px;
+              border-radius: 50% 50% 50% 0;
+              border: 2px solid white;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              transform: rotate(-45deg);
+              position: relative;
+            ">
+              <div style="
+                width: 6px;
+                height: 6px;
+                background-color: white;
+                border-radius: 50%;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(45deg);
+              "></div>
+            </div>`,
+            iconSize: [25, 25],
+            iconAnchor: [12, 24]
+          });
+        }
+        
+        const marker = L.marker([result.lat, result.lon], { icon: markerIcon })
           .bindPopup(`
-            <div style="font-weight: 600;">${name}</div>
+            <div style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+              <span>${typeInfo.icon}</span>
+              <span>${name}</span>
+              <span style="font-size: 10px; color: #888; font-weight: normal;">${typeInfo.label}</span>
+            </div>
             <div style="font-size: 12px; margin-top: 4px;">${result.display_name}</div>
             <div style="margin-top: 8px;">
               <button onclick="saveSearchResult(${index})" style="padding: 4px 8px; font-size: 12px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Save Point</button>
@@ -976,15 +1114,17 @@
   
   // Hide search history when clicking outside
   document.addEventListener('click', function(e) {
-    const searchContainer = document.querySelector('.search-container');
-    if (!searchContainer.contains(e.target)) {
+    const searchInputContainer = document.querySelector('.search-input-container');
+    const searchHistoryDropdown = document.getElementById('searchHistoryDropdown');
+    
+    // Check if click is outside the search input container and dropdown
+    if (!searchInputContainer.contains(e.target) && !searchHistoryDropdown.contains(e.target)) {
       hideSearchHistoryDropdown();
     }
   });
   
   // Make search history functions global
   window.selectSearchHistoryItem = selectSearchHistoryItem;
-  window.removeSearchHistoryItem = removeSearchHistoryItem;
   window.clearSearchHistory = clearSearchHistory;
   window.clearSearch = clearSearch;
 })();

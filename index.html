@@ -273,7 +273,7 @@
   legend.onAdd = function () {
     const div = L.DomUtil.create('div', 'legend');
     div.innerHTML = `
-      <div style="margin-bottom:.25rem;"><strong>Shaded ZIPs v5</strong></div>
+      <div style="margin-bottom:.25rem;"><strong>Shaded ZIPs v6</strong></div>
       ${Object.entries(colorMap).map(([zip, color]) => {
         const townName = zipTownMap[zip] || '';
         const displayText = townName ? `${zip} - ${townName}` : zip;
@@ -861,6 +861,8 @@
     try {
       // Determine if this looks like an address search vs business search
       const isAddressLike = /\d/.test(query) || /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|way|ct|court|pl|place)\b/i.test(query);
+      
+      console.log(`Search query: "${query}", detected as: ${isAddressLike ? 'address' : 'business'} search`);
       
       let results = [];
       

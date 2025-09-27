@@ -467,10 +467,11 @@
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       const points = saved ? JSON.parse(saved) : [];
-      // Ensure backward compatibility by adding default color to existing points
+      // Ensure backward compatibility by adding default values to existing points
       return points.map(point => ({
         ...point,
-        color: point.color || '#d62728'
+        color: point.color || '#d62728',
+        notes: point.notes || ''
       }));
     } catch (e) {
       console.error('Error loading saved points:', e);
@@ -518,13 +519,14 @@
   }
   
   // Add a saved point
-  function addSavedPoint(lat, lng, name = '', color = '#d62728') {
+  function addSavedPoint(lat, lng, name = '', color = '#d62728', notes = '') {
     const point = {
       id: Date.now(),
       lat: lat,
       lng: lng,
       name: name || `Point ${Date.now()}`,
       color: color,
+      notes: notes || '',
       timestamp: new Date().toISOString()
     };
     
@@ -541,6 +543,7 @@
     marker.bindPopup(`
       <div>
         <strong>${point.name}</strong><br>
+        ${point.notes ? `<div style="font-size: 12px; color: #666; margin: 4px 0;">${point.notes}</div>` : ''}
         <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
         <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
         <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
@@ -599,6 +602,7 @@
       marker.bindPopup(`
         <div>
           <strong>${point.name}</strong><br>
+          ${point.notes ? `<div style="font-size: 12px; color: #666; margin: 4px 0;">${point.notes}</div>` : ''}
           <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
           <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
           <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
@@ -625,6 +629,7 @@
     const filter = filterText.toLowerCase().trim();
     return points.filter(point => 
       point.name.toLowerCase().includes(filter) ||
+      point.notes.toLowerCase().includes(filter) ||
       point.lat.toString().includes(filter) ||
       point.lng.toString().includes(filter)
     );
@@ -664,6 +669,7 @@
         listDiv.innerHTML = filteredPoints.map(point => `
           <div style="padding: 3px 0; border-bottom: 1px solid #eee; font-size: 12px;">
             <div style="font-weight: 600;">${point.name}</div>
+            ${point.notes ? `<div style="color: #666; font-size: 11px; font-style: italic; margin: 2px 0;">${point.notes}</div>` : ''}
             <div style="color: #666; font-size: 11px;">
               ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}
               <button onclick="zoomToSavedPoint(${point.id})" style="margin-left: 8px; padding: 1px 4px; font-size: 10px; background: #007cff; color: white; border: none; border-radius: 2px; cursor: pointer;">Zoom</button>

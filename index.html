@@ -226,10 +226,7 @@
   <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;">
     <div style="font-size: 11px; color: #666; margin-bottom: 6px; font-weight: 600;">Cloud Sync</div>
     <div style="display: flex; gap: 4px; margin-bottom: 4px;">
-      <button onclick="syncFromGitHub()" class="sync-button" style="flex: 1; padding: 6px 8px; font-size: 11px; background: #007cff; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Download and merge points from GitHub">
-        <span>↓</span><span>Pull</span>
-      </button>
-      <button onclick="saveToGitHub()" class="sync-button" style="flex: 1; padding: 6px 8px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Upload points to GitHub">
+      <button onclick="manualSaveToGitHub()" class="sync-button" style="flex: 1; padding: 6px 8px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Manually upload points to GitHub">
         <span>↑</span><span>Push</span>
       </button>
       <button onclick="setupGitHubSync()" class="sync-button" style="padding: 6px 10px; font-size: 11px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;" title="Setup GitHub Personal Access Token">⚙️</button>
@@ -574,9 +571,11 @@
   }
   
   // Save points to GitHub repository
-  async function savePointsToGitHub(points) {
+  async function savePointsToGitHub(points, showAlert = true) {
     if (!githubToken) {
-      alert('GitHub token required for saving. Please set up sync first.');
+      if (showAlert) {
+        alert('GitHub token required for saving. Please set up sync first.');
+      }
       return false;
     }
     
@@ -617,13 +616,34 @@
       } else {
         const error = await updateResponse.json();
         console.error('Error saving to GitHub:', error);
-        alert('Error saving to GitHub: ' + (error.message || 'Unknown error'));
+        if (showAlert) {
+          alert('Error saving to GitHub: ' + (error.message || 'Unknown error'));
+        }
         return false;
       }
     } catch (e) {
       console.error('Error saving points to GitHub:', e);
-      alert('Error saving to GitHub: ' + e.message);
+      if (showAlert) {
+        alert('Error saving to GitHub: ' + e.message);
+      }
       return false;
+    }
+  }
+  
+  // Automatically save to GitHub if token is available
+  async function autoSaveToGitHub() {
+    if (!githubToken) {
+      return; // No token, skip auto-save
+    }
+    
+    const points = loadSavedPoints();
+    updateSyncStatus('Auto-saving to GitHub...');
+    
+    const success = await savePointsToGitHub(points, false); // Don't show alert for auto-save
+    if (success) {
+      updateSyncStatus(`Auto-saved ${points.length} points to GitHub`);
+    } else {
+      updateSyncStatus('Auto-save failed');
     }
   }
   
@@ -687,6 +707,10 @@
     savedMarkers.push(marker);
     
     updateSavedPointsList();
+    
+    // Auto-save to GitHub if token is available
+    autoSaveToGitHub();
+    
     return point;
   }
   
@@ -704,6 +728,9 @@
     }
     
     updateSavedPointsList();
+    
+    // Auto-save to GitHub if token is available
+    autoSaveToGitHub();
   }
   
   // Update saved point position
@@ -714,6 +741,9 @@
       point.lat = newLat;
       point.lng = newLng;
       saveSavedPoints(savedPoints);
+      
+      // Auto-save to GitHub if token is available
+      autoSaveToGitHub();
     }
   }
   
@@ -857,6 +887,9 @@
       // Clear from local storage
       saveSavedPoints([]);
       updateSavedPointsList();
+      
+      // Auto-save to GitHub if token is available
+      autoSaveToGitHub();
     }
   }
   
@@ -1074,6 +1107,9 @@
       // Update the saved points list
       updateSavedPointsList();
       
+      // Auto-save to GitHub if token is available
+      autoSaveToGitHub();
+      
       // Close the edit dialog
       cancelEdit();
     }
@@ -1146,65 +1182,8 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
     }
   }
   
-  // Sync from GitHub
-  async function syncFromGitHub() {
-    updateSyncStatus('Syncing from GitHub...');
-    
-    try {
-      const cloudPoints = await loadPointsFromGitHub();
-      const localPoints = loadSavedPoints();
-      
-      if (cloudPoints.length === 0) {
-        updateSyncStatus('No points found in GitHub');
-        return;
-      }
-      
-      const mergedPoints = mergePoints(localPoints, cloudPoints);
-      
-      // Clear existing markers
-      savedMarkers.forEach(marker => map.removeLayer(marker));
-      savedMarkers = [];
-      
-      // Save and display merged points
-      saveSavedPoints(mergedPoints);
-      
-      // Redisplay all points
-      mergedPoints.forEach(point => {
-        const marker = L.marker([point.lat, point.lng], {
-          draggable: true,
-          icon: createColoredMarkerIcon(point.color)
-        }).addTo(map);
-        
-        marker.bindPopup(`
-          <div>
-            <strong>${point.name}</strong><br>
-            ${point.notes ? `<div style="font-size: 12px; color: #666; margin: 4px 0;">${point.notes}</div>` : ''}
-            <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
-            <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
-            <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
-          </div>
-        `);
-        
-        marker.on('dragend', function() {
-          const newPos = marker.getLatLng();
-          updateSavedPointPosition(point.id, newPos.lat, newPos.lng);
-        });
-        
-        marker.pointId = point.id;
-        savedMarkers.push(marker);
-      });
-      
-      updateSavedPointsList();
-      updateSyncStatus(`Synced ${cloudPoints.length} points from GitHub`);
-      
-    } catch (e) {
-      updateSyncStatus('Error syncing from GitHub');
-      console.error('Sync error:', e);
-    }
-  }
-  
-  // Save to GitHub
-  async function saveToGitHub() {
+  // Manual save to GitHub (for the push button)
+  async function manualSaveToGitHub() {
     const points = loadSavedPoints();
     
     if (points.length === 0) {
@@ -1212,13 +1191,13 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
       return;
     }
     
-    updateSyncStatus('Saving to GitHub...');
+    updateSyncStatus('Manually saving to GitHub...');
     
-    const success = await savePointsToGitHub(points);
+    const success = await savePointsToGitHub(points, true); // Show alerts for manual save
     if (success) {
-      updateSyncStatus(`Saved ${points.length} points to GitHub`);
+      updateSyncStatus(`Manually saved ${points.length} points to GitHub`);
     } else {
-      updateSyncStatus('Error saving to GitHub');
+      updateSyncStatus('Manual save failed');
     }
   }
   
@@ -1231,8 +1210,7 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
   window.saveEdit = saveEdit;
   window.clearPointsFilter = clearPointsFilter;
   window.setupGitHubSync = setupGitHubSync;
-  window.syncFromGitHub = syncFromGitHub;
-  window.saveToGitHub = saveToGitHub;
+  window.manualSaveToGitHub = manualSaveToGitHub;
   
   window.searchBusinesses = async function() {
     const query = document.getElementById('searchInput').value.trim();

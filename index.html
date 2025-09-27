@@ -148,8 +148,46 @@
       box-shadow: 0 2px 8px rgba(0,0,0,.15);
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       width: 250px;
-      max-height: 300px;
+      max-height: 350px;
       overflow-y: auto;
+    }
+    .filter-input-container {
+      position: relative;
+      margin-bottom: 8px;
+    }
+    .filter-input {
+      width: 100%;
+      padding: 4px 24px 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      font-size: 12px;
+      outline: none;
+      box-sizing: border-box;
+    }
+    .filter-input:focus {
+      border-color: #007cff;
+      box-shadow: 0 0 0 1px rgba(0,124,255,.2);
+    }
+    .filter-clear-button {
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      font-size: 12px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .filter-clear-button:hover {
+      background: #f0f0f0;
+      color: #666;
     }
   </style>
 </head>
@@ -167,6 +205,10 @@
 <div class="saved-points-container">
   <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Saved Points</div>
   <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Click map to save points</div>
+  <div class="filter-input-container">
+    <input type="text" class="filter-input" placeholder="Filter points..." id="pointsFilter" autocomplete="off">
+    <button class="filter-clear-button" onclick="clearPointsFilter()" id="filterClearButton" title="Clear filter">×</button>
+  </div>
   <div id="savedPointsList"></div>
   <button onclick="clearAllSavedPoints()" style="margin-top: 8px; padding: 4px 8px; font-size: 12px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer; width: 100%;">Clear All</button>
 </div>
@@ -218,7 +260,7 @@
     "85119": "Apache Junction",
     "85120": "Apache Junction",
     "85140": "Queen Creek/San Tan Valley",
-    "85142": "Queen Creek",
+    "85142": "Queen Creek/San Tan Valley",
     "85144": "San Tan Valley",
     "85147": "Sacaton",
     "85201": "Mesa",
@@ -418,6 +460,7 @@
   // Saved points functionality
   let savedMarkers = [];
   const STORAGE_KEY = 'mapSavedPoints';
+  let currentPointsFilter = '';
   
   // Load saved points from local storage
   function loadSavedPoints() {
@@ -573,15 +616,52 @@
     updateSavedPointsList();
   }
   
+  // Filter saved points based on current filter
+  function filterSavedPoints(points, filterText) {
+    if (!filterText || filterText.trim() === '') {
+      return points;
+    }
+    
+    const filter = filterText.toLowerCase().trim();
+    return points.filter(point => 
+      point.name.toLowerCase().includes(filter) ||
+      point.lat.toString().includes(filter) ||
+      point.lng.toString().includes(filter)
+    );
+  }
+
+  // Update markers visibility based on filter
+  function updateMarkersVisibility() {
+    const savedPoints = loadSavedPoints();
+    const filteredPoints = filterSavedPoints(savedPoints, currentPointsFilter);
+    const filteredIds = new Set(filteredPoints.map(p => p.id));
+    
+    savedMarkers.forEach(marker => {
+      if (filteredIds.has(marker.pointId)) {
+        if (!map.hasLayer(marker)) {
+          map.addLayer(marker);
+        }
+      } else {
+        if (map.hasLayer(marker)) {
+          map.removeLayer(marker);
+        }
+      }
+    });
+  }
+
   // Update the saved points list in UI
   function updateSavedPointsList() {
     const savedPoints = loadSavedPoints();
+    const filteredPoints = filterSavedPoints(savedPoints, currentPointsFilter);
     const listDiv = document.getElementById('savedPointsList');
+    
     if (listDiv) {
       if (savedPoints.length === 0) {
         listDiv.innerHTML = '<div style="color: #999; font-size: 12px; font-style: italic;">No saved points</div>';
+      } else if (filteredPoints.length === 0 && currentPointsFilter) {
+        listDiv.innerHTML = '<div style="color: #999; font-size: 12px; font-style: italic;">No points match filter</div>';
       } else {
-        listDiv.innerHTML = savedPoints.map(point => `
+        listDiv.innerHTML = filteredPoints.map(point => `
           <div style="padding: 3px 0; border-bottom: 1px solid #eee; font-size: 12px;">
             <div style="font-weight: 600;">${point.name}</div>
             <div style="color: #666; font-size: 11px;">
@@ -594,6 +674,9 @@
         `).join('');
       }
     }
+    
+    // Update markers visibility
+    updateMarkersVisibility();
   }
   
   // Zoom to a saved point
@@ -832,6 +915,37 @@
     }
   };
   
+  // Clear points filter
+  function clearPointsFilter() {
+    const filterInput = document.getElementById('pointsFilter');
+    const filterClearButton = document.getElementById('filterClearButton');
+    
+    filterInput.value = '';
+    currentPointsFilter = '';
+    filterClearButton.style.display = 'none';
+    updateSavedPointsList();
+  }
+
+  // Update filter clear button visibility
+  function updateFilterClearButtonVisibility() {
+    const filterInput = document.getElementById('pointsFilter');
+    const filterClearButton = document.getElementById('filterClearButton');
+    
+    if (filterInput.value.trim() !== '') {
+      filterClearButton.style.display = 'flex';
+    } else {
+      filterClearButton.style.display = 'none';
+    }
+  }
+
+  // Apply points filter
+  function applyPointsFilter() {
+    const filterInput = document.getElementById('pointsFilter');
+    currentPointsFilter = filterInput.value;
+    updateSavedPointsList();
+    updateFilterClearButtonVisibility();
+  }
+
   // Make functions global for onclick handlers
   window.removeSavedPoint = removeSavedPoint;
   window.zoomToSavedPoint = zoomToSavedPoint;
@@ -839,6 +953,7 @@
   window.editSavedPoint = editSavedPoint;
   window.cancelEdit = cancelEdit;
   window.saveEdit = saveEdit;
+  window.clearPointsFilter = clearPointsFilter;
   
   window.searchBusinesses = async function() {
     const query = document.getElementById('searchInput').value.trim();
@@ -1113,6 +1228,17 @@
   
   // Initialize clear button visibility
   updateClearButtonVisibility();
+  
+  // Add event listeners for points filter
+  const pointsFilterInput = document.getElementById('pointsFilter');
+  
+  // Filter points as user types
+  pointsFilterInput.addEventListener('input', function() {
+    applyPointsFilter();
+  });
+  
+  // Initialize filter clear button visibility
+  updateFilterClearButtonVisibility();
   
   // Hide search history when clicking outside
   document.addEventListener('click', function(e) {

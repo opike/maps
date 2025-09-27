@@ -210,6 +210,12 @@
     <button class="filter-clear-button" onclick="clearPointsFilter()" id="filterClearButton" title="Clear filter">×</button>
   </div>
   <div id="savedPointsList"></div>
+  <div style="margin-top: 8px; display: flex; gap: 4px;">
+    <button onclick="syncFromGitHub()" style="flex: 1; padding: 4px 8px; font-size: 12px; background: #007cff; color: white; border: none; border-radius: 3px; cursor: pointer;">↓ Sync</button>
+    <button onclick="saveToGitHub()" style="flex: 1; padding: 4px 8px; font-size: 12px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">↑ Save</button>
+    <button onclick="setupGitHubSync()" style="padding: 4px 8px; font-size: 12px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;" title="Setup GitHub token">⚙️</button>
+  </div>
+  <div id="syncStatus" style="margin-top: 4px; font-size: 11px; color: #666;"></div>
   <button onclick="clearAllSavedPoints()" style="margin-top: 8px; padding: 4px 8px; font-size: 12px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer; width: 100%;">Clear All</button>
 </div>
 
@@ -462,6 +468,11 @@
   const STORAGE_KEY = 'mapSavedPoints';
   let currentPointsFilter = '';
   
+  // GitHub repository configuration
+  const GITHUB_REPO_URL = 'https://raw.githubusercontent.com/opike/maps/main/saved-points.json';
+  const GITHUB_API_URL = 'https://api.github.com/repos/opike/maps/contents/saved-points.json';
+  let githubToken = localStorage.getItem('githubToken') || '';
+  
   // Load saved points from local storage
   function loadSavedPoints() {
     try {
@@ -516,6 +527,96 @@
     } catch (e) {
       console.error('Error saving points:', e);
     }
+  }
+  
+  // Load saved points from GitHub repository
+  async function loadPointsFromGitHub() {
+    try {
+      const response = await fetch(GITHUB_REPO_URL);
+      if (response.ok) {
+        const cloudPoints = await response.json();
+        console.log(`Loaded ${cloudPoints.length} points from GitHub`);
+        return cloudPoints;
+      } else {
+        console.log('No saved points found in GitHub repository');
+        return [];
+      }
+    } catch (e) {
+      console.error('Error loading points from GitHub:', e);
+      return [];
+    }
+  }
+  
+  // Save points to GitHub repository
+  async function savePointsToGitHub(points) {
+    if (!githubToken) {
+      alert('GitHub token required for saving. Please set up sync first.');
+      return false;
+    }
+    
+    try {
+      // First, get the current file to get its SHA
+      const getResponse = await fetch(GITHUB_API_URL, {
+        headers: {
+          'Authorization': `token ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      let sha = null;
+      if (getResponse.ok) {
+        const fileData = await getResponse.json();
+        sha = fileData.sha;
+      }
+      
+      // Update the file
+      const content = btoa(JSON.stringify(points, null, 2));
+      const updateResponse = await fetch(GITHUB_API_URL, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: `Update saved points (${points.length} points)`,
+          content: content,
+          sha: sha
+        })
+      });
+      
+      if (updateResponse.ok) {
+        console.log('Successfully saved points to GitHub');
+        return true;
+      } else {
+        const error = await updateResponse.json();
+        console.error('Error saving to GitHub:', error);
+        alert('Error saving to GitHub: ' + (error.message || 'Unknown error'));
+        return false;
+      }
+    } catch (e) {
+      console.error('Error saving points to GitHub:', e);
+      alert('Error saving to GitHub: ' + e.message);
+      return false;
+    }
+  }
+  
+  // Merge local and cloud points
+  function mergePoints(localPoints, cloudPoints) {
+    const merged = [...cloudPoints];
+    const cloudIds = new Set(cloudPoints.map(p => p.id));
+    
+    // Add local points that aren't in cloud
+    localPoints.forEach(localPoint => {
+      if (!cloudIds.has(localPoint.id)) {
+        merged.push(localPoint);
+      }
+    });
+    
+    // Sort by timestamp
+    merged.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    
+    return merged;
   }
   
   // Add a saved point
@@ -591,9 +692,31 @@
   }
   
   // Load and display all saved points
-  function displaySavedPoints() {
-    const savedPoints = loadSavedPoints();
-    savedPoints.forEach(point => {
+  async function displaySavedPoints() {
+    // Try to load from GitHub first, then merge with local
+    const cloudPoints = await loadPointsFromGitHub();
+    const localPoints = loadSavedPoints();
+    
+    let pointsToDisplay = localPoints;
+    
+    if (cloudPoints.length > 0) {
+      // Merge cloud and local points
+      pointsToDisplay = mergePoints(localPoints, cloudPoints);
+      
+      // Save merged points back to local storage
+      saveSavedPoints(pointsToDisplay);
+      
+      updateSyncStatus(`Synced ${cloudPoints.length} points from cloud`);
+    } else {
+      updateSyncStatus('No cloud sync data found');
+    }
+    
+    // Clear existing markers
+    savedMarkers.forEach(marker => map.removeLayer(marker));
+    savedMarkers = [];
+    
+    // Display points
+    pointsToDisplay.forEach(point => {
       const marker = L.marker([point.lat, point.lng], {
         draggable: true,
         icon: createColoredMarkerIcon(point.color)
@@ -961,6 +1084,118 @@
     updateFilterClearButtonVisibility();
   }
 
+  // Update sync status
+  function updateSyncStatus(message) {
+    const statusDiv = document.getElementById('syncStatus');
+    if (statusDiv) {
+      statusDiv.textContent = message;
+      setTimeout(() => {
+        if (statusDiv.textContent === message) {
+          statusDiv.textContent = '';
+        }
+      }, 5000);
+    }
+  }
+  
+  // Setup GitHub sync
+  function setupGitHubSync() {
+    const currentToken = githubToken;
+    const token = prompt(`Enter your GitHub Personal Access Token for repository access:
+    
+1. Go to GitHub Settings > Developer settings > Personal access tokens
+2. Generate a new token with 'repo' permissions
+3. Copy and paste it here
+
+Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, currentToken);
+    
+    if (token !== null) {
+      githubToken = token.trim();
+      if (githubToken) {
+        localStorage.setItem('githubToken', githubToken);
+        updateSyncStatus('GitHub token saved');
+      } else {
+        localStorage.removeItem('githubToken');
+        updateSyncStatus('GitHub token removed');
+      }
+    }
+  }
+  
+  // Sync from GitHub
+  async function syncFromGitHub() {
+    updateSyncStatus('Syncing from GitHub...');
+    
+    try {
+      const cloudPoints = await loadPointsFromGitHub();
+      const localPoints = loadSavedPoints();
+      
+      if (cloudPoints.length === 0) {
+        updateSyncStatus('No points found in GitHub');
+        return;
+      }
+      
+      const mergedPoints = mergePoints(localPoints, cloudPoints);
+      
+      // Clear existing markers
+      savedMarkers.forEach(marker => map.removeLayer(marker));
+      savedMarkers = [];
+      
+      // Save and display merged points
+      saveSavedPoints(mergedPoints);
+      
+      // Redisplay all points
+      mergedPoints.forEach(point => {
+        const marker = L.marker([point.lat, point.lng], {
+          draggable: true,
+          icon: createColoredMarkerIcon(point.color)
+        }).addTo(map);
+        
+        marker.bindPopup(`
+          <div>
+            <strong>${point.name}</strong><br>
+            ${point.notes ? `<div style="font-size: 12px; color: #666; margin: 4px 0;">${point.notes}</div>` : ''}
+            <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
+            <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
+            <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
+          </div>
+        `);
+        
+        marker.on('dragend', function() {
+          const newPos = marker.getLatLng();
+          updateSavedPointPosition(point.id, newPos.lat, newPos.lng);
+        });
+        
+        marker.pointId = point.id;
+        savedMarkers.push(marker);
+      });
+      
+      updateSavedPointsList();
+      updateSyncStatus(`Synced ${cloudPoints.length} points from GitHub`);
+      
+    } catch (e) {
+      updateSyncStatus('Error syncing from GitHub');
+      console.error('Sync error:', e);
+    }
+  }
+  
+  // Save to GitHub
+  async function saveToGitHub() {
+    const points = loadSavedPoints();
+    
+    if (points.length === 0) {
+      updateSyncStatus('No points to save');
+      return;
+    }
+    
+    updateSyncStatus('Saving to GitHub...');
+    
+    const success = await savePointsToGitHub(points);
+    if (success) {
+      updateSyncStatus(`Saved ${points.length} points to GitHub`);
+    } else {
+      updateSyncStatus('Error saving to GitHub');
+    }
+  }
+  
   // Make functions global for onclick handlers
   window.removeSavedPoint = removeSavedPoint;
   window.zoomToSavedPoint = zoomToSavedPoint;
@@ -969,6 +1204,9 @@
   window.cancelEdit = cancelEdit;
   window.saveEdit = saveEdit;
   window.clearPointsFilter = clearPointsFilter;
+  window.setupGitHubSync = setupGitHubSync;
+  window.syncFromGitHub = syncFromGitHub;
+  window.saveToGitHub = saveToGitHub;
   
   window.searchBusinesses = async function() {
     const query = document.getElementById('searchInput').value.trim();

@@ -508,25 +508,25 @@
   // Color groups configuration
   const COLOR_GROUPS_KEY = 'mapColorGroups';
   const DEFAULT_COLOR_GROUPS = {
-    '#d62728': 'None',
-    '#2ca02c': 'None',
-    '#1f77b4': 'None',
-    '#ff7f0e': 'None',
-    '#9467bd': 'None',
-    '#8c564b': 'None',
-    '#e377c2': 'None',
-    '#7f7f7f': 'None',
-    '#bcbd22': 'None',
-    '#17becf': 'None',
-    '#aec7e8': 'None',
-    '#ffbb78': 'None',
-    '#98df8a': 'None',
-    '#ff9896': 'None',
-    '#c5b0d5': 'None',
-    '#c49c94': 'None'
+    '#d62728': '',
+    '#2ca02c': '',
+    '#1f77b4': '',
+    '#ff7f0e': '',
+    '#9467bd': '',
+    '#8c564b': '',
+    '#e377c2': '',
+    '#7f7f7f': '',
+    '#bcbd22': '',
+    '#17becf': '',
+    '#aec7e8': '',
+    '#ffbb78': '',
+    '#98df8a': '',
+    '#ff9896': '',
+    '#c5b0d5': '',
+    '#c49c94': ''
   };
   
-  let currentGroupFilter = ''; // Empty means show all groups
+  let currentGroupFilter = 'ALL_GROUPS'; // Show all groups by default
   
   // Load and save color groups
   function loadColorGroups() {
@@ -855,10 +855,11 @@
     let filteredPoints = points;
     
     // Apply group filter first
-    if (groupFilter && groupFilter.trim() !== '') {
+    // Note: groupFilter can be an empty string to filter for ungrouped items
+    if (groupFilter !== null && groupFilter !== undefined && groupFilter !== 'ALL_GROUPS') {
       const colorGroups = loadColorGroups();
       filteredPoints = filteredPoints.filter(point => {
-        const groupName = colorGroups[point.color] || 'Unknown';
+        const groupName = colorGroups[point.color] || '';
         return groupName === groupFilter;
       });
     }
@@ -910,13 +911,14 @@
         listDiv.innerHTML = '<div style="color: #999; font-size: 12px; font-style: italic;">No points match filters</div>';
       } else {
         listDiv.innerHTML = filteredPoints.map(point => {
-          const groupName = colorGroups[point.color] || 'Unknown';
+          const groupName = colorGroups[point.color] || '';
+          const displayGroupName = groupName === '' ? '' : groupName;
           return `
             <div style="padding: 3px 0; border-bottom: 1px solid #eee; font-size: 12px;">
               <div style="display: flex; align-items: center; gap: 6px;">
                 <div style="width: 12px; height: 12px; background: ${point.color}; border: 1px solid #ccc; border-radius: 2px; flex-shrink: 0;"></div>
                 <div style="font-weight: 600; flex: 1;">${point.name}</div>
-                <div style="font-size: 10px; color: #888;">${groupName}</div>
+                ${displayGroupName ? `<div style="font-size: 10px; color: #888;">${displayGroupName}</div>` : ''}
               </div>
               ${point.notes ? `<div style="color: #666; font-size: 11px; font-style: italic; margin: 2px 0 2px 18px;">${point.notes}</div>` : ''}
               <div style="color: #666; font-size: 11px; margin-left: 18px;">
@@ -1231,7 +1233,15 @@
   // Apply group filter
   function applyGroupFilter() {
     const groupSelect = document.getElementById('groupFilter');
-    currentGroupFilter = groupSelect.value;
+    const selectedValue = groupSelect.value;
+    
+    // If "All Groups" is selected, set filter to special value
+    if (selectedValue === '') {
+      currentGroupFilter = 'ALL_GROUPS';
+    } else {
+      currentGroupFilter = selectedValue;
+    }
+    
     updateSavedPointsList();
   }
   
@@ -1261,8 +1271,14 @@
     // Add options for each unique group name
     Object.entries(groupsByName).forEach(([name, colors]) => {
       const selected = currentGroupFilter === name ? 'selected' : '';
-      options += `<option value="${name}" ${selected}>${name}</option>`;
+      const displayName = name === '' ? '(Ungrouped)' : name;
+      options += `<option value="${name}" ${selected}>${displayName}</option>`;
     });
+    
+    // Handle "All Groups" selection
+    if (currentGroupFilter === 'ALL_GROUPS' || currentGroupFilter === '') {
+      options = options.replace('<option value="">All Groups</option>', '<option value="" selected>All Groups</option>');
+    }
     
     groupSelect.innerHTML = options;
   }

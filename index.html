@@ -684,17 +684,27 @@
   // Automatically save to GitHub if token is available
   async function autoSaveToGitHub() {
     if (!githubToken) {
+      console.log('Auto-save skipped: No GitHub token configured');
+      updateSyncStatus('No GitHub token - auto-save disabled');
       return; // No token, skip auto-save
     }
     
     const points = loadSavedPoints();
+    console.log(`Auto-saving ${points.length} points to GitHub...`);
     updateSyncStatus('Auto-saving to GitHub...');
     
-    const success = await savePointsToGitHub(points, false); // Don't show alert for auto-save
-    if (success) {
-      updateSyncStatus(`Auto-saved ${points.length} points to GitHub`);
-    } else {
-      updateSyncStatus('Auto-save failed');
+    try {
+      const success = await savePointsToGitHub(points, false); // Don't show alert for auto-save
+      if (success) {
+        console.log(`Auto-save successful: ${points.length} points saved to GitHub`);
+        updateSyncStatus(`Auto-saved ${points.length} points to GitHub`);
+      } else {
+        console.error('Auto-save failed: savePointsToGitHub returned false');
+        updateSyncStatus('Auto-save failed');
+      }
+    } catch (error) {
+      console.error('Auto-save error:', error);
+      updateSyncStatus('Auto-save error');
     }
   }
   
@@ -854,9 +864,12 @@
   function filterSavedPoints(points, filterText, groupFilter) {
     let filteredPoints = points;
     
-    // Apply group filter first
-    // Note: groupFilter can be an empty string to filter for ungrouped items
-    if (groupFilter !== null && groupFilter !== undefined && groupFilter !== 'ALL_GROUPS') {
+    // Handle special group filters
+    if (groupFilter === 'HIDE_ALL') {
+      // Return empty array to hide all points
+      return [];
+    } else if (groupFilter !== null && groupFilter !== undefined && groupFilter !== 'ALL_GROUPS') {
+      // Apply group filter for specific groups
       const colorGroups = loadColorGroups();
       filteredPoints = filteredPoints.filter(point => {
         const groupName = colorGroups[point.color] || '';
@@ -907,6 +920,8 @@
     if (listDiv) {
       if (savedPoints.length === 0) {
         listDiv.innerHTML = '<div style="color: #999; font-size: 12px; font-style: italic;">No saved points</div>';
+      } else if (currentGroupFilter === 'HIDE_ALL') {
+        listDiv.innerHTML = '<div style="color: #999; font-size: 12px; font-style: italic;">All points hidden</div>';
       } else if (filteredPoints.length === 0 && (currentPointsFilter || currentGroupFilter)) {
         listDiv.innerHTML = '<div style="color: #999; font-size: 12px; font-style: italic;">No points match filters</div>';
       } else {
@@ -1235,9 +1250,11 @@
     const groupSelect = document.getElementById('groupFilter');
     const selectedValue = groupSelect.value;
     
-    // If "All Groups" is selected, set filter to special value
+    // Handle special filter values
     if (selectedValue === '') {
       currentGroupFilter = 'ALL_GROUPS';
+    } else if (selectedValue === 'HIDE_ALL') {
+      currentGroupFilter = 'HIDE_ALL';
     } else {
       currentGroupFilter = selectedValue;
     }
@@ -1256,6 +1273,7 @@
     
     // Build options
     let options = '<option value="">All Groups</option>';
+    options += '<option value="HIDE_ALL">Hide All</option>';
     
     // Group colors by their names
     const groupsByName = {};
@@ -1275,9 +1293,11 @@
       options += `<option value="${name}" ${selected}>${displayName}</option>`;
     });
     
-    // Handle "All Groups" selection
+    // Handle special selections
     if (currentGroupFilter === 'ALL_GROUPS' || currentGroupFilter === '') {
       options = options.replace('<option value="">All Groups</option>', '<option value="" selected>All Groups</option>');
+    } else if (currentGroupFilter === 'HIDE_ALL') {
+      options = options.replace('<option value="HIDE_ALL">Hide All</option>', '<option value="HIDE_ALL" selected>Hide All</option>');
     }
     
     groupSelect.innerHTML = options;
@@ -1375,11 +1395,16 @@
     const statusDiv = document.getElementById('syncStatus');
     if (statusDiv) {
       statusDiv.textContent = message;
+      
+      // Keep error messages longer, clear success messages after 5 seconds
+      const isError = message.toLowerCase().includes('failed') || message.toLowerCase().includes('error');
+      const timeout = isError ? 10000 : 5000; // 10 seconds for errors, 5 for success
+      
       setTimeout(() => {
         if (statusDiv.textContent === message) {
           statusDiv.textContent = '';
         }
-      }, 5000);
+      }, timeout);
     }
   }
   

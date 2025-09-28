@@ -508,22 +508,22 @@
   // Color groups configuration
   const COLOR_GROUPS_KEY = 'mapColorGroups';
   const DEFAULT_COLOR_GROUPS = {
-    '#d62728': 'Default',
-    '#2ca02c': 'Places',
-    '#1f77b4': 'Work',
-    '#ff7f0e': 'Food',
-    '#9467bd': 'Entertainment',
-    '#8c564b': 'Shopping',
-    '#e377c2': 'Health',
-    '#7f7f7f': 'Travel',
-    '#bcbd22': 'Family',
-    '#17becf': 'Outdoor',
-    '#aec7e8': 'Education',
-    '#ffbb78': 'Services',
-    '#98df8a': 'Sports',
-    '#ff9896': 'Emergency',
-    '#c5b0d5': 'Culture',
-    '#c49c94': 'Transport'
+    '#d62728': 'None',
+    '#2ca02c': 'None',
+    '#1f77b4': 'None',
+    '#ff7f0e': 'None',
+    '#9467bd': 'None',
+    '#8c564b': 'None',
+    '#e377c2': 'None',
+    '#7f7f7f': 'None',
+    '#bcbd22': 'None',
+    '#17becf': 'None',
+    '#aec7e8': 'None',
+    '#ffbb78': 'None',
+    '#98df8a': 'None',
+    '#ff9896': 'None',
+    '#c5b0d5': 'None',
+    '#c49c94': 'None'
   };
   
   let currentGroupFilter = ''; // Empty means show all groups
@@ -856,7 +856,11 @@
     
     // Apply group filter first
     if (groupFilter && groupFilter.trim() !== '') {
-      filteredPoints = filteredPoints.filter(point => point.color === groupFilter);
+      const colorGroups = loadColorGroups();
+      filteredPoints = filteredPoints.filter(point => {
+        const groupName = colorGroups[point.color] || 'Unknown';
+        return groupName === groupFilter;
+      });
     }
     
     // Apply text filter
@@ -1242,11 +1246,22 @@
     
     // Build options
     let options = '<option value="">All Groups</option>';
+    
+    // Group colors by their names
+    const groupsByName = {};
     Object.entries(colorGroups).forEach(([color, name]) => {
       if (usedColors.has(color)) {
-        const selected = color === currentGroupFilter ? 'selected' : '';
-        options += `<option value="${color}" ${selected}>${name}</option>`;
+        if (!groupsByName[name]) {
+          groupsByName[name] = [];
+        }
+        groupsByName[name].push(color);
       }
+    });
+    
+    // Add options for each unique group name
+    Object.entries(groupsByName).forEach(([name, colors]) => {
+      const selected = currentGroupFilter === name ? 'selected' : '';
+      options += `<option value="${name}" ${selected}>${name}</option>`;
     });
     
     groupSelect.innerHTML = options;

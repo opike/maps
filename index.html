@@ -509,7 +509,7 @@
   const COLOR_GROUPS_KEY = 'mapColorGroups';
   const DEFAULT_COLOR_GROUPS = {
     '#d62728': '',
-    '#2ca02c': '',
+    '#2ca02c': 'Golf Course',
     '#1f77b4': '',
     '#ff7f0e': '',
     '#9467bd': '',
@@ -603,26 +603,74 @@
     }
   }
   
-  // Load saved points from GitHub repository
-  async function loadPointsFromGitHub() {
+  // Create combined data structure for GitHub sync
+  function createSyncData() {
+    const points = loadSavedPoints();
+    const colorGroups = loadColorGroups();
+    
+    return {
+      points: points,
+      colorGroups: colorGroups,
+      version: "1.0",
+      lastUpdated: new Date().toISOString()
+    };
+  }
+  
+  // Extract points and groups from sync data
+  function extractFromSyncData(syncData) {
+    // Handle both old format (array) and new format (object)
+    if (Array.isArray(syncData)) {
+      // Old format - just points array
+      return {
+        points: syncData,
+        colorGroups: DEFAULT_COLOR_GROUPS
+      };
+    } else if (syncData && typeof syncData === 'object') {
+      // New format - object with points and colorGroups
+      return {
+        points: syncData.points || [],
+        colorGroups: syncData.colorGroups || DEFAULT_COLOR_GROUPS
+      };
+    } else {
+      // Invalid or empty data
+      return {
+        points: [],
+        colorGroups: DEFAULT_COLOR_GROUPS
+      };
+    }
+  }
+  
+  // Load saved data from GitHub repository
+  async function loadDataFromGitHub() {
     try {
       const response = await fetch(GITHUB_REPO_URL);
       if (response.ok) {
-        const cloudPoints = await response.json();
-        console.log(`Loaded ${cloudPoints.length} points from GitHub`);
-        return cloudPoints;
+        const cloudData = await response.json();
+        const extracted = extractFromSyncData(cloudData);
+        
+        console.log(`Loaded ${extracted.points.length} points and ${Object.keys(extracted.colorGroups).length} color groups from GitHub`);
+        
+        // Update local color groups with cloud data
+        saveColorGroups(extracted.colorGroups);
+        
+        return extracted.points;
       } else {
-        console.log('No saved points found in GitHub repository');
+        console.log('No saved data found in GitHub repository');
         return [];
       }
     } catch (e) {
-      console.error('Error loading points from GitHub:', e);
+      console.error('Error loading data from GitHub:', e);
       return [];
     }
   }
   
-  // Save points to GitHub repository
-  async function savePointsToGitHub(points, showAlert = true) {
+  // Legacy function name for backward compatibility
+  async function loadPointsFromGitHub() {
+    return await loadDataFromGitHub();
+  }
+  
+  // Save data to GitHub repository (points + color groups)
+  async function saveDataToGitHub(showAlert = true) {
     if (!githubToken) {
       if (showAlert) {
         alert('GitHub token required for saving. Please set up sync first.');
@@ -631,6 +679,9 @@
     }
     
     try {
+      // Create combined data structure
+      const syncData = createSyncData();
+      
       // First, get the current file to get its SHA
       const getResponse = await fetch(GITHUB_API_URL, {
         headers: {
@@ -645,8 +696,8 @@
         sha = fileData.sha;
       }
       
-      // Update the file
-      const content = btoa(JSON.stringify(points, null, 2));
+      // Update the file with combined data
+      const content = btoa(JSON.stringify(syncData, null, 2));
       const updateResponse = await fetch(GITHUB_API_URL, {
         method: 'PUT',
         headers: {
@@ -655,14 +706,14 @@
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          message: `Update saved points (${points.length} points)`,
+          message: `Update saved data (${syncData.points.length} points, ${Object.keys(syncData.colorGroups).length} color groups)`,
           content: content,
           sha: sha
         })
       });
       
       if (updateResponse.ok) {
-        console.log('Successfully saved points to GitHub');
+        console.log('Successfully saved data to GitHub');
         return true;
       } else {
         const error = await updateResponse.json();
@@ -673,12 +724,17 @@
         return false;
       }
     } catch (e) {
-      console.error('Error saving points to GitHub:', e);
+      console.error('Error saving data to GitHub:', e);
       if (showAlert) {
         alert('Error saving to GitHub: ' + e.message);
       }
       return false;
     }
+  }
+  
+  // Legacy function for backward compatibility
+  async function savePointsToGitHub(points, showAlert = true) {
+    return await saveDataToGitHub(showAlert);
   }
   
   // Automatically save to GitHub if token is available
@@ -690,16 +746,17 @@
     }
     
     const points = loadSavedPoints();
-    console.log(`Auto-saving ${points.length} points to GitHub...`);
+    const colorGroups = loadColorGroups();
+    console.log(`Auto-saving ${points.length} points and ${Object.keys(colorGroups).length} color groups to GitHub...`);
     updateSyncStatus('Auto-saving to GitHub...');
     
     try {
-      const success = await savePointsToGitHub(points, false); // Don't show alert for auto-save
+      const success = await saveDataToGitHub(false); // Don't show alert for auto-save
       if (success) {
-        console.log(`Auto-save successful: ${points.length} points saved to GitHub`);
-        updateSyncStatus(`Auto-saved ${points.length} points to GitHub`);
+        console.log(`Auto-save successful: ${points.length} points and color groups saved to GitHub`);
+        updateSyncStatus(`Auto-saved ${points.length} points + groups to GitHub`);
       } else {
-        console.error('Auto-save failed: savePointsToGitHub returned false');
+        console.error('Auto-save failed: saveDataToGitHub returned false');
         updateSyncStatus('Auto-save failed');
       }
     } catch (error) {
@@ -1434,6 +1491,7 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
   // Manual save to GitHub (for the push button)
   async function manualSaveToGitHub() {
     const points = loadSavedPoints();
+    const colorGroups = loadColorGroups();
     
     if (points.length === 0) {
       updateSyncStatus('No points to save');
@@ -1442,9 +1500,9 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
     
     updateSyncStatus('Manually saving to GitHub...');
     
-    const success = await savePointsToGitHub(points, true); // Show alerts for manual save
+    const success = await saveDataToGitHub(true); // Show alerts for manual save
     if (success) {
-      updateSyncStatus(`Manually saved ${points.length} points to GitHub`);
+      updateSyncStatus(`Manually saved ${points.length} points + groups to GitHub`);
     } else {
       updateSyncStatus('Manual save failed');
     }
@@ -1463,6 +1521,9 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
       colorGroups[color] = name;
       saveColorGroups(colorGroups);
       
+      // Auto-save to GitHub when color groups are modified
+      autoSaveToGitHub();
+      
       // Refresh the dialog
       editColorGroup();
     }
@@ -1473,6 +1534,9 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
       const colorGroups = loadColorGroups();
       delete colorGroups[color];
       saveColorGroups(colorGroups);
+      
+      // Auto-save to GitHub when color groups are modified
+      autoSaveToGitHub();
       
       // Refresh the dialog
       editColorGroup();
@@ -1497,6 +1561,9 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
     cancelColorGroupEdit();
     updateGroupFilterDropdown();
     updateSavedPointsList();
+    
+    // Auto-save to GitHub when color groups are modified
+    autoSaveToGitHub();
   };
   
   window.cancelColorGroupEdit = function() {

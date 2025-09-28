@@ -216,6 +216,15 @@
 <div class="saved-points-container">
   <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Saved Points</div>
   <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Click map to save points</div>
+  
+  <!-- Group Filter -->
+  <div style="margin-bottom: 8px;">
+    <select id="groupFilter" onchange="applyGroupFilter()" style="width: 100%; padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; background: white;">
+      <option value="">All Groups</option>
+    </select>
+  </div>
+  
+  <!-- Text Filter -->
   <div class="filter-input-container">
     <input type="text" class="filter-input" placeholder="Filter points..." id="pointsFilter" autocomplete="off">
     <button class="filter-clear-button" onclick="clearPointsFilter()" id="filterClearButton" title="Clear filter">×</button>
@@ -495,6 +504,48 @@
   const GITHUB_REPO_URL = 'https://raw.githubusercontent.com/opike/maps/main/saved-points.json';
   const GITHUB_API_URL = 'https://api.github.com/repos/opike/maps/contents/saved-points.json';
   let githubToken = localStorage.getItem('githubToken') || '';
+  
+  // Color groups configuration
+  const COLOR_GROUPS_KEY = 'mapColorGroups';
+  const DEFAULT_COLOR_GROUPS = {
+    '#d62728': 'Default',
+    '#2ca02c': 'Places',
+    '#1f77b4': 'Work',
+    '#ff7f0e': 'Food',
+    '#9467bd': 'Entertainment',
+    '#8c564b': 'Shopping',
+    '#e377c2': 'Health',
+    '#7f7f7f': 'Travel',
+    '#bcbd22': 'Family',
+    '#17becf': 'Outdoor',
+    '#aec7e8': 'Education',
+    '#ffbb78': 'Services',
+    '#98df8a': 'Sports',
+    '#ff9896': 'Emergency',
+    '#c5b0d5': 'Culture',
+    '#c49c94': 'Transport'
+  };
+  
+  let currentGroupFilter = ''; // Empty means show all groups
+  
+  // Load and save color groups
+  function loadColorGroups() {
+    try {
+      const saved = localStorage.getItem(COLOR_GROUPS_KEY);
+      return saved ? JSON.parse(saved) : DEFAULT_COLOR_GROUPS;
+    } catch (e) {
+      console.error('Error loading color groups:', e);
+      return DEFAULT_COLOR_GROUPS;
+    }
+  }
+  
+  function saveColorGroups(groups) {
+    try {
+      localStorage.setItem(COLOR_GROUPS_KEY, JSON.stringify(groups));
+    } catch (e) {
+      console.error('Error saving color groups:', e);
+    }
+  }
   
   // Load saved points from local storage
   function loadSavedPoints() {
@@ -799,25 +850,33 @@
     updateSavedPointsList();
   }
   
-  // Filter saved points based on current filter
-  function filterSavedPoints(points, filterText) {
-    if (!filterText || filterText.trim() === '') {
-      return points;
+  // Filter saved points based on current filters
+  function filterSavedPoints(points, filterText, groupFilter) {
+    let filteredPoints = points;
+    
+    // Apply group filter first
+    if (groupFilter && groupFilter.trim() !== '') {
+      filteredPoints = filteredPoints.filter(point => point.color === groupFilter);
     }
     
-    const filter = filterText.toLowerCase().trim();
-    return points.filter(point => 
-      point.name.toLowerCase().includes(filter) ||
-      point.notes.toLowerCase().includes(filter) ||
-      point.lat.toString().includes(filter) ||
-      point.lng.toString().includes(filter)
-    );
+    // Apply text filter
+    if (filterText && filterText.trim() !== '') {
+      const filter = filterText.toLowerCase().trim();
+      filteredPoints = filteredPoints.filter(point => 
+        point.name.toLowerCase().includes(filter) ||
+        point.notes.toLowerCase().includes(filter) ||
+        point.lat.toString().includes(filter) ||
+        point.lng.toString().includes(filter)
+      );
+    }
+    
+    return filteredPoints;
   }
 
-  // Update markers visibility based on filter
+  // Update markers visibility based on filters
   function updateMarkersVisibility() {
     const savedPoints = loadSavedPoints();
-    const filteredPoints = filterSavedPoints(savedPoints, currentPointsFilter);
+    const filteredPoints = filterSavedPoints(savedPoints, currentPointsFilter, currentGroupFilter);
     const filteredIds = new Set(filteredPoints.map(p => p.id));
     
     savedMarkers.forEach(marker => {
@@ -836,32 +895,43 @@
   // Update the saved points list in UI
   function updateSavedPointsList() {
     const savedPoints = loadSavedPoints();
-    const filteredPoints = filterSavedPoints(savedPoints, currentPointsFilter);
+    const filteredPoints = filterSavedPoints(savedPoints, currentPointsFilter, currentGroupFilter);
+    const colorGroups = loadColorGroups();
     const listDiv = document.getElementById('savedPointsList');
     
     if (listDiv) {
       if (savedPoints.length === 0) {
         listDiv.innerHTML = '<div style="color: #999; font-size: 12px; font-style: italic;">No saved points</div>';
-      } else if (filteredPoints.length === 0 && currentPointsFilter) {
-        listDiv.innerHTML = '<div style="color: #999; font-size: 12px; font-style: italic;">No points match filter</div>';
+      } else if (filteredPoints.length === 0 && (currentPointsFilter || currentGroupFilter)) {
+        listDiv.innerHTML = '<div style="color: #999; font-size: 12px; font-style: italic;">No points match filters</div>';
       } else {
-        listDiv.innerHTML = filteredPoints.map(point => `
-          <div style="padding: 3px 0; border-bottom: 1px solid #eee; font-size: 12px;">
-            <div style="font-weight: 600;">${point.name}</div>
-            ${point.notes ? `<div style="color: #666; font-size: 11px; font-style: italic; margin: 2px 0;">${point.notes}</div>` : ''}
-            <div style="color: #666; font-size: 11px;">
-              ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}
-              <button onclick="zoomToSavedPoint(${point.id})" style="margin-left: 8px; padding: 1px 4px; font-size: 10px; background: #007cff; color: white; border: none; border-radius: 2px; cursor: pointer;">Zoom</button>
-              <button onclick="editSavedPoint(${point.id})" style="margin-left: 4px; padding: 1px 4px; font-size: 10px; background: #28a745; color: white; border: none; border-radius: 2px; cursor: pointer;">Edit</button>
-              <button onclick="removeSavedPoint(${point.id})" style="margin-left: 4px; padding: 1px 4px; font-size: 10px; background: #d62728; color: white; border: none; border-radius: 2px; cursor: pointer;">×</button>
+        listDiv.innerHTML = filteredPoints.map(point => {
+          const groupName = colorGroups[point.color] || 'Unknown';
+          return `
+            <div style="padding: 3px 0; border-bottom: 1px solid #eee; font-size: 12px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="width: 12px; height: 12px; background: ${point.color}; border: 1px solid #ccc; border-radius: 2px; flex-shrink: 0;"></div>
+                <div style="font-weight: 600; flex: 1;">${point.name}</div>
+                <div style="font-size: 10px; color: #888;">${groupName}</div>
+              </div>
+              ${point.notes ? `<div style="color: #666; font-size: 11px; font-style: italic; margin: 2px 0 2px 18px;">${point.notes}</div>` : ''}
+              <div style="color: #666; font-size: 11px; margin-left: 18px;">
+                ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}
+                <button onclick="zoomToSavedPoint(${point.id})" style="margin-left: 8px; padding: 1px 4px; font-size: 10px; background: #007cff; color: white; border: none; border-radius: 2px; cursor: pointer;">Zoom</button>
+                <button onclick="editSavedPoint(${point.id})" style="margin-left: 4px; padding: 1px 4px; font-size: 10px; background: #28a745; color: white; border: none; border-radius: 2px; cursor: pointer;">Edit</button>
+                <button onclick="removeSavedPoint(${point.id})" style="margin-left: 4px; padding: 1px 4px; font-size: 10px; background: #d62728; color: white; border: none; border-radius: 2px; cursor: pointer;">×</button>
+              </div>
             </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       }
     }
     
     // Update markers visibility
     updateMarkersVisibility();
+    
+    // Update group filter dropdown
+    updateGroupFilterDropdown();
   }
   
   // Zoom to a saved point
@@ -904,6 +974,9 @@
   
   // Load saved points on initialization
   displaySavedPoints();
+  
+  // Initialize group filter dropdown
+  updateGroupFilterDropdown();
   
   // Save a search result as a saved point
   window.saveSearchResult = function(index) {
@@ -964,17 +1037,22 @@
           <input type="number" id="editLng" value="${point.lng}" step="any" style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px;">
         </div>
         <div style="margin-bottom: 15px;">
-          <label style="display: block; margin-bottom: 3px; font-weight: 600; font-size: 12px;">Marker Color:</label>
+          <label style="display: block; margin-bottom: 3px; font-weight: 600; font-size: 12px;">Color Group:</label>
+          <select id="editColorGroup" onchange="updateEditColor()" style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; margin-bottom: 8px;">
+            ${Object.entries(loadColorGroups()).map(([color, name]) => `
+              <option value="${color}" ${color === point.color ? 'selected' : ''}>${name}</option>
+            `).join('')}
+          </select>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="color" id="editColor" value="${point.color}" style="width: 40px; height: 30px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;">
-            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-              <div onclick="document.getElementById('editColor').value='#d62728'" style="width: 20px; height: 20px; background: #d62728; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Red"></div>
-              <div onclick="document.getElementById('editColor').value='#2ca02c'" style="width: 20px; height: 20px; background: #2ca02c; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Green"></div>
-              <div onclick="document.getElementById('editColor').value='#1f77b4'" style="width: 20px; height: 20px; background: #1f77b4; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Blue"></div>
-              <div onclick="document.getElementById('editColor').value='#ff7f0e'" style="width: 20px; height: 20px; background: #ff7f0e; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Orange"></div>
-              <div onclick="document.getElementById('editColor').value='#9467bd'" style="width: 20px; height: 20px; background: #9467bd; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Purple"></div>
-              <div onclick="document.getElementById('editColor').value='#8c564b'" style="width: 20px; height: 20px; background: #8c564b; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;" title="Brown"></div>
-            </div>
+            <input type="color" id="editColor" value="${point.color}" onchange="updateEditColorGroup()" style="width: 40px; height: 30px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;">
+            <button onclick="editColorGroup()" style="padding: 4px 8px; font-size: 11px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit Groups</button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 8px;">
+            ${Object.entries(loadColorGroups()).map(([color, name]) => `
+              <div onclick="document.getElementById('editColor').value='${color}'; document.getElementById('editColorGroup').value='${color}';" style="width: 24px; height: 24px; background: ${color}; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; text-shadow: 1px 1px 1px rgba(0,0,0,0.5);" title="${name}">
+                ${color === point.color ? '✓' : ''}
+              </div>
+            `).join('')}
           </div>
         </div>
         <div style="text-align: right;">
@@ -1145,6 +1223,121 @@
     updateSavedPointsList();
     updateFilterClearButtonVisibility();
   }
+  
+  // Apply group filter
+  function applyGroupFilter() {
+    const groupSelect = document.getElementById('groupFilter');
+    currentGroupFilter = groupSelect.value;
+    updateSavedPointsList();
+  }
+  
+  // Update group filter dropdown
+  function updateGroupFilterDropdown() {
+    const groupSelect = document.getElementById('groupFilter');
+    const colorGroups = loadColorGroups();
+    const savedPoints = loadSavedPoints();
+    
+    // Get unique colors that are actually used
+    const usedColors = new Set(savedPoints.map(point => point.color));
+    
+    // Build options
+    let options = '<option value="">All Groups</option>';
+    Object.entries(colorGroups).forEach(([color, name]) => {
+      if (usedColors.has(color)) {
+        const selected = color === currentGroupFilter ? 'selected' : '';
+        options += `<option value="${color}" ${selected}>${name}</option>`;
+      }
+    });
+    
+    groupSelect.innerHTML = options;
+  }
+  
+  // Update edit color when group changes
+  function updateEditColor() {
+    const groupSelect = document.getElementById('editColorGroup');
+    const colorInput = document.getElementById('editColor');
+    if (groupSelect && colorInput) {
+      colorInput.value = groupSelect.value;
+    }
+  }
+  
+  // Update edit group when color changes
+  function updateEditColorGroup() {
+    const colorInput = document.getElementById('editColor');
+    const groupSelect = document.getElementById('editColorGroup');
+    const colorGroups = loadColorGroups();
+    
+    if (colorInput && groupSelect) {
+      const color = colorInput.value;
+      if (colorGroups[color]) {
+        groupSelect.value = color;
+      }
+    }
+  }
+  
+  // Edit color groups
+  function editColorGroup() {
+    const colorGroups = loadColorGroups();
+    const groupEntries = Object.entries(colorGroups);
+    
+    let editDialog = `
+      <div style="font-family: system-ui, -apple-system, sans-serif; max-height: 400px; overflow-y: auto;">
+        <h3 style="margin: 0 0 15px 0; font-size: 16px;">Edit Color Groups</h3>
+        <div id="colorGroupsList">
+          ${groupEntries.map(([color, name], index) => `
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <div style="width: 20px; height: 20px; background: ${color}; border: 1px solid #ccc; border-radius: 3px;"></div>
+              <input type="text" value="${name}" id="groupName${index}" style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px;">
+              <button onclick="removeColorGroup('${color}')" style="padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">×</button>
+            </div>
+          `).join('')}
+        </div>
+        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <input type="color" id="newGroupColor" value="#000000" style="width: 40px; height: 30px; border: 1px solid #ccc; border-radius: 3px;">
+            <input type="text" id="newGroupName" placeholder="Group name" style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px;">
+            <button onclick="addColorGroup()" style="padding: 4px 8px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Add</button>
+          </div>
+        </div>
+        <div style="text-align: right; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
+          <button onclick="cancelColorGroupEdit()" style="margin-right: 8px; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Cancel</button>
+          <button onclick="saveColorGroups()" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Save</button>
+        </div>
+      </div>
+    `;
+    
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'colorGroupEditOverlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 2000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    `;
+    
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      min-width: 400px;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    `;
+    
+    dialog.innerHTML = editDialog;
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+  }
 
   // Update sync status
   function updateSyncStatus(message) {
@@ -1201,6 +1394,62 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
     }
   }
   
+  // Color group management functions
+  window.addColorGroup = function() {
+    const colorInput = document.getElementById('newGroupColor');
+    const nameInput = document.getElementById('newGroupName');
+    
+    if (colorInput && nameInput && nameInput.value.trim()) {
+      const color = colorInput.value;
+      const name = nameInput.value.trim();
+      
+      const colorGroups = loadColorGroups();
+      colorGroups[color] = name;
+      saveColorGroups(colorGroups);
+      
+      // Refresh the dialog
+      editColorGroup();
+    }
+  };
+  
+  window.removeColorGroup = function(color) {
+    if (confirm('Remove this color group?')) {
+      const colorGroups = loadColorGroups();
+      delete colorGroups[color];
+      saveColorGroups(colorGroups);
+      
+      // Refresh the dialog
+      editColorGroup();
+    }
+  };
+  
+  window.saveColorGroups = function() {
+    const colorGroups = loadColorGroups();
+    const groupEntries = Object.entries(colorGroups);
+    const updatedGroups = {};
+    
+    groupEntries.forEach(([color, originalName], index) => {
+      const nameInput = document.getElementById(`groupName${index}`);
+      if (nameInput) {
+        updatedGroups[color] = nameInput.value.trim() || originalName;
+      } else {
+        updatedGroups[color] = originalName;
+      }
+    });
+    
+    saveColorGroups(updatedGroups);
+    cancelColorGroupEdit();
+    updateGroupFilterDropdown();
+    updateSavedPointsList();
+  };
+  
+  window.cancelColorGroupEdit = function() {
+    const overlay = document.getElementById('colorGroupEditOverlay');
+    if (overlay) {
+      overlay.remove();
+    }
+  };
+  
   // Make functions global for onclick handlers
   window.removeSavedPoint = removeSavedPoint;
   window.zoomToSavedPoint = zoomToSavedPoint;
@@ -1211,6 +1460,10 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
   window.clearPointsFilter = clearPointsFilter;
   window.setupGitHubSync = setupGitHubSync;
   window.manualSaveToGitHub = manualSaveToGitHub;
+  window.applyGroupFilter = applyGroupFilter;
+  window.updateEditColor = updateEditColor;
+  window.updateEditColorGroup = updateEditColorGroup;
+  window.editColorGroup = editColorGroup;
   
   window.searchBusinesses = async function() {
     const query = document.getElementById('searchInput').value.trim();

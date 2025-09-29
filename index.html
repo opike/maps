@@ -10,7 +10,7 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
-  <link rel="stylesheet" href="https://raw.githubusercontent.com/opike/maps/main/styles.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="map" aria-label="Map of Arizona ZIP codes"></div>
@@ -26,27 +26,27 @@
 <div class="saved-points-container">
   <!-- Header Section (Fixed) -->
   <div class="saved-points-header">
-    <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Saved Points</div>
-    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Click map to save points</div>
+  <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Saved Points</div>
+  <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Click map to save points</div>
     
     <!-- Group Filter -->
     <div style="margin-bottom: 8px;">
       <select id="groupFilter" onchange="applyGroupFilter()" style="width: 100%; padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; background: white;">
         <option value="">All Groups</option>
       </select>
-    </div>
+      </div>
     
     <!-- Text Filter -->
     <div class="filter-input-container">
       <input type="text" class="filter-input" placeholder="Filter points..." id="pointsFilter" autocomplete="off">
       <button class="filter-clear-button" onclick="clearPointsFilter()" id="filterClearButton" title="Clear filter">×</button>
-    </div>
-  </div>
+            </div>
+          </div>
   
   <!-- Scrollable Content Section -->
   <div class="saved-points-content">
     <div id="savedPointsList"></div>
-  </div>
+          </div>
   
   <!-- Fixed Controls Section -->
   <div class="saved-points-controls">
@@ -60,19 +60,19 @@
         <button onclick="setupGitHubSync()" class="sync-button" style="padding: 6px 10px; font-size: 11px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;" title="Setup GitHub Personal Access Token">⚙️</button>
       </div>
       <div id="syncStatus" style="font-size: 10px; color: #666; min-height: 12px; text-align: center;"></div>
-    </div>
+          </div>
     
     <!-- Clear All -->
     <div style="padding-top: 8px; border-top: 1px solid #eee;">
       <button onclick="clearAllSavedPoints()" class="sync-button" style="width: 100%; padding: 6px 8px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;" title="Remove all saved points">
         🗑️ Clear All Points
       </button>
-    </div>
-  </div>
-</div>
+              </div>
+            </div>
+          </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="https://raw.githubusercontent.com/opike/maps/main/script.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

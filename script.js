@@ -579,6 +579,16 @@
   // Remove a saved point
   function removeSavedPoint(pointId) {
     const savedPoints = loadSavedPoints();
+    const point = savedPoints.find(p => p.id === pointId);
+    
+    if (!point) return;
+    
+    // Show confirmation dialog
+    const confirmMessage = `Are you sure you want to delete "${point.name}"?`;
+    if (!confirm(confirmMessage)) {
+      return; // User cancelled
+    }
+    
     const filteredPoints = savedPoints.filter(p => p.id !== pointId);
     saveSavedPoints(filteredPoints);
     

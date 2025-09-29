@@ -97,7 +97,7 @@
   legend.onAdd = function () {
     const div = L.DomUtil.create('div', 'legend');
     div.innerHTML = `
-      <div style="margin-bottom:.25rem;"><strong>Shaded ZIPs v6</strong></div>
+      <div style="margin-bottom:.25rem;"><strong>Shaded ZIPs v7</strong></div>
       ${Object.entries(colorMap).map(([zip, color]) => {
         const townName = zipTownMap[zip] || '';
         const displayText = townName ? `${zip} - ${townName}` : zip;

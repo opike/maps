@@ -387,7 +387,15 @@
   // Load saved data from GitHub repository
   async function loadDataFromGitHub() {
     try {
-      const response = await fetch(GITHUB_REPO_URL);
+      // Add cache-busting parameter to force fresh data
+      const cacheBuster = `?t=${Date.now()}&r=${Math.random()}`;
+      const response = await fetch(GITHUB_REPO_URL + cacheBuster, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       if (response.ok) {
         const cloudData = await response.json();
         const extracted = extractFromSyncData(cloudData);

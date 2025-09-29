@@ -1631,7 +1631,32 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
   // Custom resize functionality for top-right handle
   function initializeCustomResize() {
     const container = document.querySelector('.saved-points-container');
-    const resizeHandle = container.querySelector('::before'); // This won't work, we need a different approach
+    const WIDGET_HEIGHT_KEY = 'savedPointsWidgetHeight';
+    const DEFAULT_HEIGHT = 350;
+    
+    // Load saved height from localStorage
+    function loadSavedHeight() {
+      try {
+        const savedHeight = localStorage.getItem(WIDGET_HEIGHT_KEY);
+        return savedHeight ? parseInt(savedHeight, 10) : DEFAULT_HEIGHT;
+      } catch (e) {
+        console.error('Error loading widget height:', e);
+        return DEFAULT_HEIGHT;
+      }
+    }
+    
+    // Save height to localStorage
+    function saveHeight(height) {
+      try {
+        localStorage.setItem(WIDGET_HEIGHT_KEY, height.toString());
+      } catch (e) {
+        console.error('Error saving widget height:', e);
+      }
+    }
+    
+    // Apply saved height on initialization
+    const savedHeight = loadSavedHeight();
+    container.style.height = savedHeight + 'px';
     
     let isResizing = false;
     let startY = 0;
@@ -1676,6 +1701,10 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
       isResizing = false;
       document.removeEventListener('mousemove', doResize);
       document.removeEventListener('mouseup', stopResize);
+      
+      // Save the final height to localStorage
+      const currentHeight = parseInt(container.style.height, 10);
+      saveHeight(currentHeight);
     }
     
     // Update cursor when hovering over resize area

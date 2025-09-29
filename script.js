@@ -789,8 +789,7 @@
   map.on('click', function(e) {
     const pointName = prompt('Enter a name for this point:');
     if (pointName !== null) { // User didn't cancel
-      const pointNotes = prompt('Enter notes for this point (optional):') || '';
-      addSavedPoint(e.latlng.lat, e.latlng.lng, pointName || `Point ${Date.now()}`, '#d62728', pointNotes);
+      addSavedPoint(e.latlng.lat, e.latlng.lng, pointName || `Point ${Date.now()}`, '#d62728', '');
     }
   });
   

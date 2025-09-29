@@ -656,15 +656,6 @@
       "color": "#d62728",
       "notes": "",
       "timestamp": "2025-09-29T02:14:00.055Z"
-    },
-    {
-      "id": 1759112042153,
-      "lat": 33.3244186,
-      "lng": -111.5749101,
-      "name": "South Reverence Road",
-      "color": "#d62728",
-      "notes": "",
-      "timestamp": "2025-09-29T02:14:02.153Z"
     }
   ],
   "colorGroups": {
@@ -686,5 +677,5 @@
     "#c49c94": ""
   },
   "version": "1.0",
-  "lastUpdated": "2025-09-29T02:50:35.940Z"
+  "lastUpdated": "2025-09-29T02:50:42.021Z"
 }

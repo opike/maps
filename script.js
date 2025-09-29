@@ -74,6 +74,8 @@
       const name = zipTownMap[String(zip)] || "";
       
       layer.bindPopup(`<strong>ZIP ${zip}</strong>${name ? " – " + name : ""}`);
+      
+      
       // Add a lightweight label at the polygon's center
       try {
         const center = layer.getBounds().getCenter();
@@ -803,8 +805,8 @@
     }
   }
   
-  // Add map click handler for saving points
-  map.on('click', function(e) {
+  // Add map double-click handler for saving points
+  map.on('dblclick', function(e) {
     const pointName = prompt('Enter a name for this point:');
     if (pointName !== null) { // User didn't cancel
       addSavedPoint(e.latlng.lat, e.latlng.lng, pointName || `Point ${Date.now()}`, '#d62728', '');

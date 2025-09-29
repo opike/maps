@@ -158,29 +158,36 @@ html, body, #map { height: 100%; margin: 0; }
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  resize: vertical;
   overflow: hidden;
 }
 
-/* Ensure resize handle is visible and styled */
-.saved-points-container::-webkit-resizer {
-  background: linear-gradient(-45deg, transparent 0%, transparent 25%, #999 25%, #999 50%, transparent 50%, transparent 75%, #999 75%);
+/* Custom resize handle in top-right corner */
+.saved-points-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(-45deg, transparent 0%, transparent 30%, #999 30%, #999 35%, transparent 35%, transparent 50%, #999 50%, #999 55%, transparent 55%, transparent 70%, #999 70%, #999 75%, transparent 75%);
   background-size: 4px 4px;
-  border-bottom-right-radius: 6px;
+  border-top-right-radius: 6px;
+  cursor: ns-resize;
+  z-index: 1001;
 }
 
-/* Add a subtle visual indicator for resize capability */
+/* Visual indicator for resize capability */
 .saved-points-container::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  right: 0;
+  top: 2px;
+  right: 2px;
   width: 16px;
   height: 16px;
   background: linear-gradient(-45deg, transparent 0%, transparent 30%, #ddd 30%, #ddd 40%, transparent 40%, transparent 60%, #ddd 60%, #ddd 70%, transparent 70%);
   background-size: 3px 3px;
   pointer-events: none;
-  border-bottom-right-radius: 6px;
+  border-top-right-radius: 6px;
 }
 
 .saved-points-header {

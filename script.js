@@ -1628,6 +1628,77 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
     }
   });
   
+  // Custom resize functionality for top-right handle
+  function initializeCustomResize() {
+    const container = document.querySelector('.saved-points-container');
+    const resizeHandle = container.querySelector('::before'); // This won't work, we need a different approach
+    
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
+    
+    // Add mouse events to the container for the top-right area
+    container.addEventListener('mousedown', function(e) {
+      const rect = container.getBoundingClientRect();
+      const isInResizeArea = (
+        e.clientX >= rect.right - 20 && 
+        e.clientX <= rect.right && 
+        e.clientY >= rect.top && 
+        e.clientY <= rect.top + 20
+      );
+      
+      if (isInResizeArea) {
+        isResizing = true;
+        startY = e.clientY;
+        startHeight = parseInt(document.defaultView.getComputedStyle(container).height, 10);
+        document.addEventListener('mousemove', doResize);
+        document.addEventListener('mouseup', stopResize);
+        e.preventDefault();
+      }
+    });
+    
+    function doResize(e) {
+      if (!isResizing) return;
+      
+      // Calculate new height (inverted because we're resizing from top)
+      const deltaY = startY - e.clientY;
+      const newHeight = startHeight + deltaY;
+      
+      // Apply constraints
+      const minHeight = 200;
+      const maxHeight = window.innerHeight * 0.8;
+      const constrainedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+      
+      container.style.height = constrainedHeight + 'px';
+    }
+    
+    function stopResize() {
+      isResizing = false;
+      document.removeEventListener('mousemove', doResize);
+      document.removeEventListener('mouseup', stopResize);
+    }
+    
+    // Update cursor when hovering over resize area
+    container.addEventListener('mousemove', function(e) {
+      const rect = container.getBoundingClientRect();
+      const isInResizeArea = (
+        e.clientX >= rect.right - 20 && 
+        e.clientX <= rect.right && 
+        e.clientY >= rect.top && 
+        e.clientY <= rect.top + 20
+      );
+      
+      container.style.cursor = isInResizeArea ? 'ns-resize' : 'default';
+    });
+    
+    container.addEventListener('mouseleave', function() {
+      container.style.cursor = 'default';
+    });
+  }
+  
+  // Initialize custom resize functionality
+  initializeCustomResize();
+
   // Make search history functions global
   window.selectSearchHistoryItem = selectSearchHistoryItem;
   window.clearSearchHistory = clearSearchHistory;

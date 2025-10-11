@@ -75,6 +75,33 @@
       
       layer.bindPopup(`<strong>ZIP ${zip}</strong>${name ? " – " + name : ""}`);
       
+      // Handle click vs double-click to prevent popup during point creation
+      let clickTimeout;
+      
+      layer.on('click', function(e) {
+        // Clear any existing timeout
+        clearTimeout(clickTimeout);
+        
+        // Set a timeout to show popup only if no double-click follows
+        clickTimeout = setTimeout(function() {
+          layer.openPopup(e.latlng);
+        }, 300); // Wait 300ms to see if double-click occurs
+        
+        // Prevent the event from bubbling to the map
+        L.DomEvent.stopPropagation(e);
+      });
+      
+      layer.on('dblclick', function(e) {
+        // Clear the click timeout to prevent popup from showing
+        clearTimeout(clickTimeout);
+        
+        // Close any open popup
+        layer.closePopup();
+        
+        // Prevent the event from bubbling to avoid double point creation
+        L.DomEvent.stopPropagation(e);
+      });
+      
       
       // Add a lightweight label at the polygon's center
       try {
@@ -95,17 +122,22 @@
   }
 
   // Legend
-  const legend = L.control({ position: 'topright' });
+  const legend = L.control({ position: 'bottomright' });
   legend.onAdd = function () {
     const div = L.DomUtil.create('div', 'legend');
     div.innerHTML = `
-      <div style="margin-bottom:.25rem;"><strong>Shaded ZIPs v7</strong></div>
-      ${Object.entries(colorMap).map(([zip, color]) => {
-        const townName = zipTownMap[zip] || '';
-        const displayText = townName ? `${zip} - ${townName}` : zip;
-        return `<div style="margin-bottom:2px;"><span style="display:inline-block;width:12px;height:12px;background:${color};border:1px solid #222;margin-right:6px;vertical-align:middle;"></span><span style="font-size:13px;">${displayText}</span></div>`;
-      }).join('')}
-      <div style="margin-top:.5rem;font-size:12px;color:#555;">Boundaries: OpenDataDE (Census ZCTA)</div>
+      <div class="collapsible-header">
+        <span class="header-title">Shaded ZIPs v7</span>
+        <button class="collapse-button" onclick="toggleCollapse('legend')" id="legendCollapseButton" title="Collapse/Expand">−</button>
+      </div>
+      <div class="collapsible-content" id="legendContent">
+        ${Object.entries(colorMap).map(([zip, color]) => {
+          const townName = zipTownMap[zip] || '';
+          const displayText = townName ? `${zip} - ${townName}` : zip;
+          return `<div style="margin-bottom:2px;"><span style="display:inline-block;width:12px;height:12px;background:${color};border:1px solid #222;margin-right:6px;vertical-align:middle;"></span><span style="font-size:13px;">${displayText}</span></div>`;
+        }).join('')}
+        <div style="margin-top:.5rem;font-size:12px;color:#555;">Boundaries: OpenDataDE (Census ZCTA)</div>
+      </div>
     `;
     return div;
   };
@@ -1673,9 +1705,16 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
       }
     }
     
-    // Apply saved height on initialization
+    // Apply saved height on initialization (but only if not collapsed)
     const savedHeight = loadSavedHeight();
-    container.style.height = savedHeight + 'px';
+    // Check if the container will be collapsed on initialization
+    const collapseStates = loadCollapseStates();
+    if (!collapseStates.savedPoints) {
+      container.style.height = savedHeight + 'px';
+    } else {
+      // Store the height for when it gets expanded later
+      container.dataset.expandedHeight = savedHeight + 'px';
+    }
     
     let isResizing = false;
     let startY = 0;
@@ -1683,6 +1722,11 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
     
     // Add mouse events to the container for the top-right area
     container.addEventListener('mousedown', function(e) {
+      // Don't allow resizing when collapsed
+      if (container.classList.contains('collapsed-widget')) {
+        return;
+      }
+      
       const rect = container.getBoundingClientRect();
       const isInResizeArea = (
         e.clientX >= rect.right - 20 && 
@@ -1728,6 +1772,12 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
     
     // Update cursor when hovering over resize area
     container.addEventListener('mousemove', function(e) {
+      // Don't show resize cursor when collapsed
+      if (container.classList.contains('collapsed-widget')) {
+        container.style.cursor = 'default';
+        return;
+      }
+      
       const rect = container.getBoundingClientRect();
       const isInResizeArea = (
         e.clientX >= rect.right - 20 && 
@@ -1751,4 +1801,152 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
   window.selectSearchHistoryItem = selectSearchHistoryItem;
   window.clearSearchHistory = clearSearchHistory;
   window.clearSearch = clearSearch;
+
+  // Collapsible functionality
+  const COLLAPSE_STATES_KEY = 'mapCollapseStates';
+  
+  // Load collapse states from localStorage
+  function loadCollapseStates() {
+    try {
+      const saved = localStorage.getItem(COLLAPSE_STATES_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.error('Error loading collapse states:', e);
+      return {};
+    }
+  }
+  
+  // Save collapse states to localStorage
+  function saveCollapseStates(states) {
+    try {
+      localStorage.setItem(COLLAPSE_STATES_KEY, JSON.stringify(states));
+    } catch (e) {
+      console.error('Error saving collapse states:', e);
+    }
+  }
+  
+  // Toggle collapse state for a component
+  function toggleCollapse(componentId) {
+    const contentId = componentId + 'Content';
+    const buttonId = componentId + 'CollapseButton';
+    
+    // Handle special case for saved points - collapse the entire widget
+    let contentElements = [];
+    if (componentId === 'savedPoints') {
+      // For saved points, we want to collapse everything except the header with the collapse button
+      contentElements = [
+        document.getElementById('savedPointsHeaderContent'),
+        document.getElementById('savedPointsContent')
+      ].filter(el => el !== null);
+    } else {
+      const contentEl = document.getElementById(contentId);
+      if (contentEl) {
+        contentElements = [contentEl];
+      }
+    }
+    
+    const button = document.getElementById(buttonId);
+    
+    if (contentElements.length === 0 || !button) {
+      console.error('Collapse elements not found for:', componentId);
+      return;
+    }
+    
+    // Get current states
+    const collapseStates = loadCollapseStates();
+    const isCurrentlyCollapsed = collapseStates[componentId] || false;
+    const newCollapsedState = !isCurrentlyCollapsed;
+    
+    // Update visual state
+    contentElements.forEach(contentEl => {
+      if (newCollapsedState) {
+        contentEl.classList.add('collapsed');
+      } else {
+        contentEl.classList.remove('collapsed');
+      }
+    });
+    
+    // For saved points, also adjust the container height when collapsed
+    if (componentId === 'savedPoints') {
+      const container = document.querySelector('.saved-points-container');
+      if (container) {
+        if (newCollapsedState) {
+          // Store the current height before collapsing
+          container.dataset.expandedHeight = container.style.height || '350px';
+          // Remove the inline height style to allow CSS to take over
+          container.style.height = '';
+          container.classList.add('collapsed-widget');
+        } else {
+          container.classList.remove('collapsed-widget');
+          // Restore the previous height
+          const expandedHeight = container.dataset.expandedHeight || '350px';
+          container.style.height = expandedHeight;
+        }
+      }
+    }
+    
+    // Update button text
+    button.textContent = newCollapsedState ? '+' : '−';
+    button.title = newCollapsedState ? 'Expand' : 'Collapse';
+    
+    // Save state
+    collapseStates[componentId] = newCollapsedState;
+    saveCollapseStates(collapseStates);
+  }
+  
+  // Initialize collapse states on page load
+  function initializeCollapseStates() {
+    const collapseStates = loadCollapseStates();
+    
+    // Apply saved states
+    Object.entries(collapseStates).forEach(([componentId, isCollapsed]) => {
+      if (isCollapsed) {
+        const contentId = componentId + 'Content';
+        const buttonId = componentId + 'CollapseButton';
+        
+        // Handle special case for saved points
+        let contentElements = [];
+        if (componentId === 'savedPoints') {
+          contentElements = [
+            document.getElementById('savedPointsHeaderContent'),
+            document.getElementById('savedPointsContent')
+          ].filter(el => el !== null);
+        } else {
+          const contentEl = document.getElementById(contentId);
+          if (contentEl) {
+            contentElements = [contentEl];
+          }
+        }
+        
+        const button = document.getElementById(buttonId);
+        
+        if (contentElements.length > 0 && button) {
+          contentElements.forEach(contentEl => {
+            contentEl.classList.add('collapsed');
+          });
+          
+          // For saved points, also add the collapsed widget class
+          if (componentId === 'savedPoints') {
+            const container = document.querySelector('.saved-points-container');
+            if (container) {
+              // Store the current height before collapsing
+              container.dataset.expandedHeight = container.style.height || '350px';
+              // Remove the inline height style to allow CSS to take over
+              container.style.height = '';
+              container.classList.add('collapsed-widget');
+            }
+          }
+          
+          button.textContent = '+';
+          button.title = 'Expand';
+        }
+      }
+    });
+  }
+  
+  // Make toggle function global
+  window.toggleCollapse = toggleCollapse;
+  
+  // Initialize collapse states after a short delay to ensure DOM is ready
+  setTimeout(initializeCollapseStates, 100);
 })();

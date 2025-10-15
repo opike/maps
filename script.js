@@ -7,7 +7,7 @@
   }).addTo(map);
 
   // Target ZIPs
-  const wanted = new Set(["85118", "85119", "85120", "85140", "85142", "85144", "85147", "85201", "85202", "85203", "85204", "85205", "85210", "85213", "85215", "85248", "85249", "85256", "85286"]);
+  const wanted = new Set(["85118", "85119", "85120", "85140", "85142", "85143", "85144", "85147", "85201", "85202", "85203", "85204", "85205", "85210", "85213", "85215", "85248", "85249", "85256", "85286"]);
 
   // Source: OpenDataDE state ZIP GeoJSON (derived from Census ZCTA shapefiles)
   const src = "https://raw.githubusercontent.com/OpenDataDE/State-zip-code-GeoJSON/master/az_arizona_zip_codes_geo.min.json";
@@ -30,7 +30,7 @@
 
   const colorMap = { 
     "85118": "#e41a1c", "85119": "#377eb8", "85120": "#4daf4a", "85140": "#984ea3", 
-    "85142": "#ff7f00", "85144": "#1f77b4", "85147": "#ff7f0e", "85201": "#2ca02c", 
+    "85142": "#ff7f00", "85143": "#c5b0d5", "85144": "#1f77b4", "85147": "#ff7f0e", "85201": "#2ca02c", 
     "85202": "#d62728", "85203": "#9467bd", "85204": "#8c564b", "85205": "#e377c2", 
     "85210": "#7f7f7f", "85213": "#bcbd22", "85215": "#17becf", "85248": "#aec7e8", 
     "85249": "#ffbb78", "85256": "#98df8a", "85286": "#ff9896" 
@@ -43,6 +43,7 @@
     "85120": "Apache Junction",
     "85140": "Queen Creek/San Tan Valley",
     "85142": "Queen Creek/San Tan Valley",
+    "85143": "San Tan Valley",
     "85144": "San Tan Valley",
     "85147": "Sacaton",
     "85201": "Mesa",

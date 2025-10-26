@@ -8,15 +8,15 @@ Saved points were not appearing on Android devices, likely due to:
 
 ## Solution Implemented
 
-### 1. Separate Storage Keys
-- **`mapSavedPoints_cloud`**: Points synced from GitHub (cached locally)
-- **`mapSavedPoints_local`**: Points saved directly on this device
+### 1. Cloud-Only Storage
+- **`mapSavedPoints_cloud`**: All points are synced from GitHub and cached locally
+- No separate local storage - everything comes from GitHub
 
-### 2. Load Priority System
-The app now follows this priority when loading points:
+### 2. Load System
+The app follows this approach:
 1. **First**: Try to load from GitHub (with 5-second timeout)
-2. **Second**: If GitHub fails or has no points, use local storage
-3. **Third**: If both are empty, show "No points found"
+2. **Second**: If GitHub fails, use cached points (offline mode)
+3. **Third**: If no cache exists, show "No points found - click Pull"
 
 ### 3. New "Pull" Button
 Added a manual "Pull" button next to "Push" that:
@@ -25,9 +25,9 @@ Added a manual "Pull" button next to "Push" that:
 - Immediately displays them on the map
 
 ### 4. Enhanced Debugging
-- Added debug info display showing: `Cloud: X | Local: Y | Token: ✓/✗`
+- Added debug info display showing: `Cached: X points | Token: ✓/✗`
 - Console logging at each step of the load process
-- Status messages showing which source is being used
+- Status messages showing data source (GitHub, cached, or offline)
 
 ## Testing on Android
 
@@ -51,11 +51,8 @@ Added a manual "Pull" button next to "Push" that:
 ### Step 3: Verify Storage
 In browser console, run:
 ```javascript
-// Check cloud storage
+// Check cached points
 JSON.parse(localStorage.getItem('mapSavedPoints_cloud')).length
-
-// Check local storage
-JSON.parse(localStorage.getItem('mapSavedPoints_local'))?.length || 0
 ```
 
 ## How It Works Now
@@ -63,16 +60,16 @@ JSON.parse(localStorage.getItem('mapSavedPoints_local'))?.length || 0
 ### On Page Load
 ```
 1. Try to fetch from GitHub (5 second timeout)
-   ├─ Success? Save to cloud storage → Display cloud points
-   └─ Fail? Check local storage
-      ├─ Has points? Display local points
-      └─ Empty? Show "No points found"
+   ├─ Success? Save to cache → Display points
+   └─ Fail? Check cache
+      ├─ Has cached points? Display cached points (offline mode)
+      └─ Empty? Show "No points found - click Pull"
 ```
 
 ### When Adding/Editing Points
-- If cloud storage has points → Save changes to cloud storage
-- If only local storage has points → Save changes to local storage
+- All changes are saved to the cache
 - Auto-save to GitHub if token is configured
+- Without token, changes stay in cache only (read-only mode)
 
 ### Manual Pull Button
 ```

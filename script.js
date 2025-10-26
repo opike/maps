@@ -276,8 +276,7 @@
   
   // Saved points functionality
   let savedMarkers = [];
-  const LOCAL_STORAGE_KEY = 'mapSavedPoints_local';  // For points saved locally only
-  const CLOUD_STORAGE_KEY = 'mapSavedPoints_cloud';  // For points synced from GitHub
+  const STORAGE_KEY = 'mapSavedPoints_cloud';  // Cloud-synced points cached locally
   let currentPointsFilter = '';
   
   // GitHub repository configuration
@@ -290,10 +289,9 @@
     return !!githubToken && githubToken.trim().length > 0;
   }
   
-  // Check if we're in read-only mode (using cloud points without edit permission)
+  // Check if we're in read-only mode (no edit permission)
   function isReadOnlyMode() {
-    const activeStorage = getActiveStorage();
-    return activeStorage === 'cloud' && !hasEditPermission();
+    return !hasEditPermission();
   }
   
   // Color groups configuration
@@ -338,54 +336,19 @@
     }
   }
   
-  // Load local points (saved on this device only)
-  function loadLocalPoints() {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      const points = saved ? JSON.parse(saved) : [];
-      return points.map(point => ({
-        ...point,
-        color: point.color || '#d62728',
-        notes: point.notes || ''
-      }));
-    } catch (e) {
-      console.error('Error loading local points:', e);
-      return [];
-    }
-  }
-  
-  // Load cloud points (synced from GitHub)
-  function loadCloudPoints() {
-    try {
-      const saved = localStorage.getItem(CLOUD_STORAGE_KEY);
-      const points = saved ? JSON.parse(saved) : [];
-      return points.map(point => ({
-        ...point,
-        color: point.color || '#d62728',
-        notes: point.notes || ''
-      }));
-    } catch (e) {
-      console.error('Error loading cloud points:', e);
-      return [];
-    }
-  }
-  
-  // Load all saved points (cloud takes priority, then local)
+  // Load saved points from local cache
   function loadSavedPoints() {
-    const cloudPoints = loadCloudPoints();
-    const localPoints = loadLocalPoints();
-    
-    console.log(`loadSavedPoints: Cloud=${cloudPoints.length}, Local=${localPoints.length}`);
-    
-    // Priority: 1) GitHub points, 2) Local points, 3) Nothing
-    if (cloudPoints.length > 0) {
-      console.log('loadSavedPoints: Using cloud points');
-      return cloudPoints;
-    } else if (localPoints.length > 0) {
-      console.log('loadSavedPoints: Using local points');
-      return localPoints;
-    } else {
-      console.log('loadSavedPoints: No points found');
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const points = saved ? JSON.parse(saved) : [];
+      console.log(`loadSavedPoints: Loaded ${points.length} points from cache`);
+      return points.map(point => ({
+        ...point,
+        color: point.color || '#d62728',
+        notes: point.notes || ''
+      }));
+    } catch (e) {
+      console.error('Error loading saved points:', e);
       return [];
     }
   }
@@ -420,53 +383,13 @@
     });
   }
   
-  // Save points to local storage
-  function saveLocalPoints(points) {
+  // Save points to local cache
+  function saveSavedPoints(points) {
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(points));
-      console.log(`saveLocalPoints: Saved ${points.length} points to local storage`);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(points));
+      console.log(`saveSavedPoints: Saved ${points.length} points to cache`);
     } catch (e) {
-      console.error('Error saving local points:', e);
-    }
-  }
-  
-  // Save cloud points to local cache
-  function saveCloudPoints(points) {
-    try {
-      localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(points));
-      console.log(`saveCloudPoints: Saved ${points.length} points to cloud cache`);
-    } catch (e) {
-      console.error('Error saving cloud points:', e);
-    }
-  }
-  
-  // Determine which storage is currently active
-  function getActiveStorage() {
-    const cloudPoints = loadCloudPoints();
-    if (cloudPoints.length > 0) {
-      return 'cloud';
-    }
-    return 'local';
-  }
-  
-  // Save points to the active storage
-  function saveToActiveStorage(points) {
-    const activeStorage = getActiveStorage();
-    if (activeStorage === 'cloud') {
-      saveCloudPoints(points);
-      console.log('saveToActiveStorage: Saved to cloud storage');
-    } else {
-      saveLocalPoints(points);
-      console.log('saveToActiveStorage: Saved to local storage');
-    }
-  }
-  
-  // Save points (determines whether to save to local or cloud storage)
-  function saveSavedPoints(points, isCloudSync = false) {
-    if (isCloudSync) {
-      saveCloudPoints(points);
-    } else {
-      saveToActiveStorage(points);
+      console.error('Error saving points:', e);
     }
   }
   
@@ -755,7 +678,6 @@
     console.log('displaySavedPoints: Starting to load points...');
     
     let pointsToDisplay = [];
-    let sourceType = 'none';
     
     // Try to load from GitHub with timeout
     try {
@@ -772,31 +694,25 @@
       console.log(`displaySavedPoints: Fetched ${cloudPoints.length} points from GitHub`);
       
       if (cloudPoints.length > 0) {
-        // Save cloud points to cloud storage
-        saveCloudPoints(cloudPoints);
+        // Save to local cache
+        saveSavedPoints(cloudPoints);
         pointsToDisplay = cloudPoints;
-        sourceType = 'cloud';
-        updateSyncStatus(`Loaded ${cloudPoints.length} points from cloud`);
+        updateSyncStatus(`Loaded ${cloudPoints.length} points from GitHub`);
+      } else {
+        updateSyncStatus('No points found in GitHub - click Pull to load');
       }
     } catch (error) {
-      console.warn('displaySavedPoints: GitHub fetch failed:', error);
-    }
-    
-    // If no cloud points, try local points
-    if (pointsToDisplay.length === 0) {
-      const localPoints = loadLocalPoints();
-      console.log(`displaySavedPoints: Loaded ${localPoints.length} points from local storage`);
-      
-      if (localPoints.length > 0) {
-        pointsToDisplay = localPoints;
-        sourceType = 'local';
-        updateSyncStatus(`Using ${localPoints.length} local points`);
+      console.warn('displaySavedPoints: GitHub fetch failed, using cached points:', error);
+      // Fall back to cached points
+      pointsToDisplay = loadSavedPoints();
+      if (pointsToDisplay.length > 0) {
+        updateSyncStatus(`Using ${pointsToDisplay.length} cached points (offline)`);
       } else {
-        updateSyncStatus('No points found - double-click map to add');
+        updateSyncStatus('No points found - click Pull to load from GitHub');
       }
     }
     
-    console.log(`displaySavedPoints: Displaying ${pointsToDisplay.length} points from ${sourceType} source`);
+    console.log(`displaySavedPoints: Displaying ${pointsToDisplay.length} points`);
     
     // Clear existing markers
     savedMarkers.forEach(marker => map.removeLayer(marker));
@@ -1420,10 +1336,9 @@
   function updateDebugInfo() {
     const debugDiv = document.getElementById('debugInfo');
     if (debugDiv) {
-      const cloudPoints = loadCloudPoints();
-      const localPoints = loadLocalPoints();
+      const cachedPoints = loadSavedPoints();
       const hasToken = !!githubToken;
-      debugDiv.textContent = `Cloud: ${cloudPoints.length} | Local: ${localPoints.length} | Token: ${hasToken ? '✓' : '✗'}`;
+      debugDiv.textContent = `Cached: ${cachedPoints.length} points | Token: ${hasToken ? '✓' : '✗'}`;
     }
   }
   
@@ -1496,20 +1411,20 @@ Leave empty to remove token and switch to read-only mode.`, currentToken);
       const cloudPoints = await loadDataFromGitHub();
       
       if (cloudPoints.length === 0) {
-        updateSyncStatus('No points found in cloud');
+        updateSyncStatus('No points found in GitHub');
         alert('No saved points found in GitHub repository.');
         return;
       }
       
       console.log(`manualPullFromGitHub: Loaded ${cloudPoints.length} points from GitHub`);
       
-      // Save cloud points to cloud storage (replaces any existing cloud cache)
-      saveCloudPoints(cloudPoints);
+      // Save to cache
+      saveSavedPoints(cloudPoints);
       
       // Reload the display
       await displaySavedPoints();
       
-      updateSyncStatus(`Pulled ${cloudPoints.length} points from cloud`);
+      updateSyncStatus(`Pulled ${cloudPoints.length} points from GitHub`);
       alert(`Successfully pulled ${cloudPoints.length} points from GitHub!`);
     } catch (error) {
       console.error('manualPullFromGitHub: Error pulling from GitHub:', error);

@@ -37,7 +37,7 @@
       <button class="collapse-button" onclick="toggleCollapse('savedPoints')" id="savedPointsCollapseButton" title="Collapse/Expand">−</button>
     </div>
     <div class="collapsible-content" id="savedPointsHeaderContent">
-      <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Click map to save points</div>
+      <div id="headerMessage" style="font-size: 12px; color: #666; margin-bottom: 8px;">Click map to save points</div>
     
     <!-- Group Filter -->
     <div style="margin-bottom: 8px;">
@@ -67,16 +67,20 @@
     <div style="margin-bottom: 8px;">
       <div style="font-size: 11px; color: #666; margin-bottom: 6px; font-weight: 600;">Cloud Sync</div>
       <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+        <button onclick="manualPullFromGitHub()" class="sync-button" style="flex: 1; padding: 6px 8px; font-size: 11px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Download points from GitHub">
+          <span>↓</span><span>Pull</span>
+        </button>
         <button onclick="manualSaveToGitHub()" class="sync-button" style="flex: 1; padding: 6px 8px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Manually upload points to GitHub">
           <span>↑</span><span>Push</span>
         </button>
         <button onclick="setupGitHubSync()" class="sync-button" style="padding: 6px 10px; font-size: 11px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;" title="Setup GitHub Personal Access Token">⚙️</button>
       </div>
       <div id="syncStatus" style="font-size: 10px; color: #666; min-height: 12px; text-align: center;"></div>
+      <div id="debugInfo" style="font-size: 9px; color: #999; margin-top: 4px; text-align: center; font-family: monospace;"></div>
           </div>
     
       <!-- Clear All -->
-      <div style="padding-top: 8px; border-top: 1px solid #eee;">
+      <div id="clearAllContainer" style="padding-top: 8px; border-top: 1px solid #eee;">
         <button onclick="clearAllSavedPoints()" class="sync-button" style="width: 100%; padding: 6px 8px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;" title="Remove all saved points">
           🗑️ Clear All Points
         </button>

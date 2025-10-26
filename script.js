@@ -276,13 +276,25 @@
   
   // Saved points functionality
   let savedMarkers = [];
-  const STORAGE_KEY = 'mapSavedPoints';
+  const LOCAL_STORAGE_KEY = 'mapSavedPoints_local';  // For points saved locally only
+  const CLOUD_STORAGE_KEY = 'mapSavedPoints_cloud';  // For points synced from GitHub
   let currentPointsFilter = '';
   
   // GitHub repository configuration
   const GITHUB_REPO_URL = 'https://raw.githubusercontent.com/opike/maps/main/saved-points.json';
   const GITHUB_API_URL = 'https://api.github.com/repos/opike/maps/contents/saved-points.json';
   let githubToken = localStorage.getItem('githubToken') || '';
+  
+  // Check if user has edit permissions (has valid GitHub token)
+  function hasEditPermission() {
+    return !!githubToken && githubToken.trim().length > 0;
+  }
+  
+  // Check if we're in read-only mode (using cloud points without edit permission)
+  function isReadOnlyMode() {
+    const activeStorage = getActiveStorage();
+    return activeStorage === 'cloud' && !hasEditPermission();
+  }
   
   // Color groups configuration
   const COLOR_GROUPS_KEY = 'mapColorGroups';
@@ -326,19 +338,54 @@
     }
   }
   
-  // Load saved points from local storage
-  function loadSavedPoints() {
+  // Load local points (saved on this device only)
+  function loadLocalPoints() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       const points = saved ? JSON.parse(saved) : [];
-      // Ensure backward compatibility by adding default values to existing points
       return points.map(point => ({
         ...point,
         color: point.color || '#d62728',
         notes: point.notes || ''
       }));
     } catch (e) {
-      console.error('Error loading saved points:', e);
+      console.error('Error loading local points:', e);
+      return [];
+    }
+  }
+  
+  // Load cloud points (synced from GitHub)
+  function loadCloudPoints() {
+    try {
+      const saved = localStorage.getItem(CLOUD_STORAGE_KEY);
+      const points = saved ? JSON.parse(saved) : [];
+      return points.map(point => ({
+        ...point,
+        color: point.color || '#d62728',
+        notes: point.notes || ''
+      }));
+    } catch (e) {
+      console.error('Error loading cloud points:', e);
+      return [];
+    }
+  }
+  
+  // Load all saved points (cloud takes priority, then local)
+  function loadSavedPoints() {
+    const cloudPoints = loadCloudPoints();
+    const localPoints = loadLocalPoints();
+    
+    console.log(`loadSavedPoints: Cloud=${cloudPoints.length}, Local=${localPoints.length}`);
+    
+    // Priority: 1) GitHub points, 2) Local points, 3) Nothing
+    if (cloudPoints.length > 0) {
+      console.log('loadSavedPoints: Using cloud points');
+      return cloudPoints;
+    } else if (localPoints.length > 0) {
+      console.log('loadSavedPoints: Using local points');
+      return localPoints;
+    } else {
+      console.log('loadSavedPoints: No points found');
       return [];
     }
   }
@@ -374,11 +421,52 @@
   }
   
   // Save points to local storage
-  function saveSavedPoints(points) {
+  function saveLocalPoints(points) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(points));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(points));
+      console.log(`saveLocalPoints: Saved ${points.length} points to local storage`);
     } catch (e) {
-      console.error('Error saving points:', e);
+      console.error('Error saving local points:', e);
+    }
+  }
+  
+  // Save cloud points to local cache
+  function saveCloudPoints(points) {
+    try {
+      localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(points));
+      console.log(`saveCloudPoints: Saved ${points.length} points to cloud cache`);
+    } catch (e) {
+      console.error('Error saving cloud points:', e);
+    }
+  }
+  
+  // Determine which storage is currently active
+  function getActiveStorage() {
+    const cloudPoints = loadCloudPoints();
+    if (cloudPoints.length > 0) {
+      return 'cloud';
+    }
+    return 'local';
+  }
+  
+  // Save points to the active storage
+  function saveToActiveStorage(points) {
+    const activeStorage = getActiveStorage();
+    if (activeStorage === 'cloud') {
+      saveCloudPoints(points);
+      console.log('saveToActiveStorage: Saved to cloud storage');
+    } else {
+      saveLocalPoints(points);
+      console.log('saveToActiveStorage: Saved to local storage');
+    }
+  }
+  
+  // Save points (determines whether to save to local or cloud storage)
+  function saveSavedPoints(points, isCloudSync = false) {
+    if (isCloudSync) {
+      saveCloudPoints(points);
+    } else {
+      saveToActiveStorage(points);
     }
   }
   
@@ -664,54 +752,105 @@
   
   // Load and display all saved points
   async function displaySavedPoints() {
-    // Try to load from GitHub first, then merge with local
-    const cloudPoints = await loadPointsFromGitHub();
-    const localPoints = loadSavedPoints();
+    console.log('displaySavedPoints: Starting to load points...');
     
-    let pointsToDisplay = localPoints;
+    let pointsToDisplay = [];
+    let sourceType = 'none';
     
-    if (cloudPoints.length > 0) {
-      // Merge cloud and local points
-      pointsToDisplay = mergePoints(localPoints, cloudPoints);
+    // Try to load from GitHub with timeout
+    try {
+      console.log('displaySavedPoints: Attempting to fetch from GitHub...');
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('GitHub fetch timeout')), 5000)
+      );
       
-      // Save merged points back to local storage
-      saveSavedPoints(pointsToDisplay);
+      const cloudPoints = await Promise.race([
+        loadPointsFromGitHub(),
+        timeoutPromise
+      ]);
       
-      updateSyncStatus(`Synced ${cloudPoints.length} points from cloud`);
-    } else {
-      updateSyncStatus('No cloud sync data found');
+      console.log(`displaySavedPoints: Fetched ${cloudPoints.length} points from GitHub`);
+      
+      if (cloudPoints.length > 0) {
+        // Save cloud points to cloud storage
+        saveCloudPoints(cloudPoints);
+        pointsToDisplay = cloudPoints;
+        sourceType = 'cloud';
+        updateSyncStatus(`Loaded ${cloudPoints.length} points from cloud`);
+      }
+    } catch (error) {
+      console.warn('displaySavedPoints: GitHub fetch failed:', error);
     }
+    
+    // If no cloud points, try local points
+    if (pointsToDisplay.length === 0) {
+      const localPoints = loadLocalPoints();
+      console.log(`displaySavedPoints: Loaded ${localPoints.length} points from local storage`);
+      
+      if (localPoints.length > 0) {
+        pointsToDisplay = localPoints;
+        sourceType = 'local';
+        updateSyncStatus(`Using ${localPoints.length} local points`);
+      } else {
+        updateSyncStatus('No points found - double-click map to add');
+      }
+    }
+    
+    console.log(`displaySavedPoints: Displaying ${pointsToDisplay.length} points from ${sourceType} source`);
     
     // Clear existing markers
     savedMarkers.forEach(marker => map.removeLayer(marker));
     savedMarkers = [];
     
     // Display points
+    const readOnly = isReadOnlyMode();
     pointsToDisplay.forEach(point => {
       const marker = L.marker([point.lat, point.lng], {
-        draggable: true,
+        draggable: !readOnly, // Only draggable if user has edit permission
         icon: createColoredMarkerIcon(point.color)
       }).addTo(map);
       
-      marker.bindPopup(`
+      // Build popup content based on permissions
+      let popupContent = `
         <div>
           <strong>${point.name}</strong><br>
           ${point.notes ? `<div style="font-size: 12px; color: #666; margin: 4px 0;">${point.notes}</div>` : ''}
           <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
+      `;
+      
+      if (!readOnly) {
+        // Show edit/remove buttons only if user has permission
+        popupContent += `
           <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
           <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
-        </div>
-      `);
+        `;
+      } else {
+        // Show read-only indicator
+        popupContent += `
+          <div style="margin-top: 5px; font-size: 10px; color: #999; font-style: italic;">
+            📖 Read-only mode
+          </div>
+        `;
+      }
       
-      marker.on('dragend', function() {
-        const newPos = marker.getLatLng();
-        updateSavedPointPosition(point.id, newPos.lat, newPos.lng);
-      });
+      popupContent += `</div>`;
+      marker.bindPopup(popupContent);
+      
+      if (!readOnly) {
+        marker.on('dragend', function() {
+          const newPos = marker.getLatLng();
+          updateSavedPointPosition(point.id, newPos.lat, newPos.lng);
+        });
+      }
       
       marker.pointId = point.id;
       savedMarkers.push(marker);
     });
     updateSavedPointsList();
+    updateDebugInfo();
+    updateUIForPermissions();
+    
+    console.log('displaySavedPoints: Finished displaying points');
   }
   
   // Filter saved points based on current filters
@@ -770,6 +909,7 @@
     const filteredPoints = filterSavedPoints(savedPoints, currentPointsFilter, currentGroupFilter);
     const colorGroups = loadColorGroups();
     const listDiv = document.getElementById('savedPointsList');
+    const readOnly = isReadOnlyMode();
     
     if (listDiv) {
       if (savedPoints.length === 0) {
@@ -782,6 +922,17 @@
         listDiv.innerHTML = filteredPoints.map(point => {
           const groupName = colorGroups[point.color] || '';
           const displayGroupName = groupName === '' ? '' : groupName;
+          
+          // Build action buttons based on permissions
+          let actionButtons = `<button onclick="zoomToSavedPoint(${point.id})" style="margin-left: 8px; padding: 1px 4px; font-size: 10px; background: #007cff; color: white; border: none; border-radius: 2px; cursor: pointer;">Zoom</button>`;
+          
+          if (!readOnly) {
+            actionButtons += `
+              <button onclick="editSavedPoint(${point.id})" style="margin-left: 4px; padding: 1px 4px; font-size: 10px; background: #28a745; color: white; border: none; border-radius: 2px; cursor: pointer;">Edit</button>
+              <button onclick="removeSavedPoint(${point.id})" style="margin-left: 4px; padding: 1px 4px; font-size: 10px; background: #d62728; color: white; border: none; border-radius: 2px; cursor: pointer;">×</button>
+            `;
+          }
+          
           return `
             <div style="padding: 3px 0; border-bottom: 1px solid #eee; font-size: 12px;">
               <div style="display: flex; align-items: center; gap: 6px;">
@@ -792,9 +943,7 @@
               ${point.notes ? `<div style="color: #666; font-size: 11px; font-style: italic; margin: 2px 0 2px 18px;">${point.notes}</div>` : ''}
               <div style="color: #666; font-size: 11px; margin-left: 18px;">
                 ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}
-                <button onclick="zoomToSavedPoint(${point.id})" style="margin-left: 8px; padding: 1px 4px; font-size: 10px; background: #007cff; color: white; border: none; border-radius: 2px; cursor: pointer;">Zoom</button>
-                <button onclick="editSavedPoint(${point.id})" style="margin-left: 4px; padding: 1px 4px; font-size: 10px; background: #28a745; color: white; border: none; border-radius: 2px; cursor: pointer;">Edit</button>
-                <button onclick="removeSavedPoint(${point.id})" style="margin-left: 4px; padding: 1px 4px; font-size: 10px; background: #d62728; color: white; border: none; border-radius: 2px; cursor: pointer;">×</button>
+                ${actionButtons}
               </div>
             </div>
           `;
@@ -840,6 +989,12 @@
   
   // Add map double-click handler for saving points
   map.on('dblclick', function(e) {
+    // Check if in read-only mode
+    if (isReadOnlyMode()) {
+      alert('Read-only mode: You cannot add points without a GitHub token.\n\nTo edit points:\n1. Click the ⚙️ button in the Saved Points panel\n2. Enter your GitHub Personal Access Token\n3. You will then be able to add, edit, and remove points');
+      return;
+    }
+    
     const pointName = prompt('Enter a name for this point:');
     if (pointName !== null) { // User didn't cancel
       addSavedPoint(e.latlng.lat, e.latlng.lng, pointName || `Point ${Date.now()}`, '#d62728', '');
@@ -1261,6 +1416,46 @@
     }
   }
   
+  // Update debug info
+  function updateDebugInfo() {
+    const debugDiv = document.getElementById('debugInfo');
+    if (debugDiv) {
+      const cloudPoints = loadCloudPoints();
+      const localPoints = loadLocalPoints();
+      const hasToken = !!githubToken;
+      debugDiv.textContent = `Cloud: ${cloudPoints.length} | Local: ${localPoints.length} | Token: ${hasToken ? '✓' : '✗'}`;
+    }
+  }
+  
+  // Update UI based on read-only mode
+  function updateUIForPermissions() {
+    const readOnly = isReadOnlyMode();
+    
+    // Update header message
+    const headerMessage = document.getElementById('headerMessage');
+    if (headerMessage) {
+      if (readOnly) {
+        headerMessage.innerHTML = '📖 <span style="color: #ff9800;">Read-only mode</span> - <a href="#" onclick="setupGitHubSync(); return false;" style="color: #007cff; text-decoration: underline;">Add token to edit</a>';
+      } else {
+        headerMessage.textContent = 'Double-click map to save points';
+      }
+    }
+    
+    // Hide/show Clear All button
+    const clearAllContainer = document.getElementById('clearAllContainer');
+    if (clearAllContainer) {
+      clearAllContainer.style.display = readOnly ? 'none' : 'block';
+    }
+    
+    // Update sync status if in read-only mode
+    if (readOnly) {
+      const cloudPoints = loadCloudPoints();
+      if (cloudPoints.length > 0) {
+        updateSyncStatus(`Viewing ${cloudPoints.length} points (read-only)`);
+      }
+    }
+  }
+  
   // Setup GitHub sync
   function setupGitHubSync() {
     const currentToken = githubToken;
@@ -1270,17 +1465,56 @@
 2. Generate a new token with 'repo' permissions
 3. Copy and paste it here
 
-Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, currentToken);
+Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}
+
+Leave empty to remove token and switch to read-only mode.`, currentToken);
     
     if (token !== null) {
       githubToken = token.trim();
       if (githubToken) {
         localStorage.setItem('githubToken', githubToken);
-        updateSyncStatus('GitHub token saved');
+        updateSyncStatus('GitHub token saved - you can now edit points');
+        alert('GitHub token saved! You can now add, edit, and remove points.\n\nYour changes will automatically sync to GitHub.');
       } else {
         localStorage.removeItem('githubToken');
-        updateSyncStatus('GitHub token removed');
+        updateSyncStatus('GitHub token removed - switched to read-only mode');
       }
+      
+      // Refresh UI to reflect new permissions
+      updateUIForPermissions();
+      updateSavedPointsList();
+      updateDebugInfo();
+    }
+  }
+  
+  // Manual pull from GitHub (for the pull button)
+  async function manualPullFromGitHub() {
+    updateSyncStatus('Pulling from GitHub...');
+    console.log('manualPullFromGitHub: Starting manual pull...');
+    
+    try {
+      const cloudPoints = await loadDataFromGitHub();
+      
+      if (cloudPoints.length === 0) {
+        updateSyncStatus('No points found in cloud');
+        alert('No saved points found in GitHub repository.');
+        return;
+      }
+      
+      console.log(`manualPullFromGitHub: Loaded ${cloudPoints.length} points from GitHub`);
+      
+      // Save cloud points to cloud storage (replaces any existing cloud cache)
+      saveCloudPoints(cloudPoints);
+      
+      // Reload the display
+      await displaySavedPoints();
+      
+      updateSyncStatus(`Pulled ${cloudPoints.length} points from cloud`);
+      alert(`Successfully pulled ${cloudPoints.length} points from GitHub!`);
+    } catch (error) {
+      console.error('manualPullFromGitHub: Error pulling from GitHub:', error);
+      updateSyncStatus('Pull failed: ' + error.message);
+      alert('Failed to pull from GitHub: ' + error.message);
     }
   }
   
@@ -1378,6 +1612,7 @@ Current token: ${currentToken ? '***' + currentToken.slice(-4) : 'None'}`, curre
   window.saveEdit = saveEdit;
   window.clearPointsFilter = clearPointsFilter;
   window.setupGitHubSync = setupGitHubSync;
+  window.manualPullFromGitHub = manualPullFromGitHub;
   window.manualSaveToGitHub = manualSaveToGitHub;
   window.applyGroupFilter = applyGroupFilter;
   window.updateEditColor = updateEditColor;

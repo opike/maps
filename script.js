@@ -433,17 +433,13 @@
   // Load saved data from GitHub repository
   async function loadDataFromGitHub() {
     try {
-      // Use GitHub API endpoint instead of raw URL to avoid CORS issues
-      // The API endpoint has proper CORS headers
-      const apiUrl = 'https://api.github.com/repos/opike/maps/contents/saved-points.json';
+      // Use GitHub raw URL with cache busting via URL parameter
+      // No custom headers to avoid CORS preflight issues with external scripts
+      const url = 'https://raw.githubusercontent.com/opike/maps/main/saved-points.json?t=' + Date.now();
       
-      const response = await fetch(apiUrl, {
-        cache: 'no-cache',
-        headers: {
-          'Accept': 'application/vnd.github.v3.raw', // Get raw content directly
-          'Cache-Control': 'no-cache'
-        }
-      });
+      console.log('loadDataFromGitHub: Fetching from:', url);
+      
+      const response = await fetch(url);
       
       if (response.ok) {
         const cloudData = await response.json();
@@ -456,7 +452,7 @@
         
         return extracted.points;
       } else {
-        console.log('No saved data found in GitHub repository');
+        console.log('No saved data found in GitHub repository, status:', response.status);
         return [];
       }
     } catch (e) {

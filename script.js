@@ -128,7 +128,7 @@
     const div = L.DomUtil.create('div', 'legend');
     div.innerHTML = `
       <div class="collapsible-header">
-        <span class="header-title">Shaded ZIPs v8</span>
+        <span class="header-title">Shaded ZIPs v9</span>
         <button class="collapse-button" onclick="toggleCollapse('legend')" id="legendCollapseButton" title="Collapse/Expand">−</button>
       </div>
       <div class="collapsible-content" id="legendContent">

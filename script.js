@@ -323,10 +323,34 @@
     return urlParams.get(name);
   }
   
-  // Check for hidePoints query parameter
-  const hidePointsParam = getQueryParam('hidePoints');
-  if (hidePointsParam === 'true' || hidePointsParam === '1' || hidePointsParam === 'yes') {
-    currentGroupFilter = 'HIDE_ALL';
+  // Update query string parameter
+  function updateQueryParam(name, value) {
+    const url = new URL(window.location.href);
+    if (value === null || value === '' || value === 'ALL_GROUPS') {
+      url.searchParams.delete(name);
+    } else {
+      url.searchParams.set(name, value);
+    }
+    window.history.replaceState({}, '', url);
+  }
+  
+  // Check for group query parameter first (takes precedence over hidePoints)
+  const groupParam = getQueryParam('group');
+  if (groupParam !== null) {
+    if (groupParam === 'HIDE_ALL' || groupParam === 'hide') {
+      currentGroupFilter = 'HIDE_ALL';
+    } else if (groupParam === '' || groupParam === 'all') {
+      currentGroupFilter = 'ALL_GROUPS';
+    } else {
+      // Decode the group name
+      currentGroupFilter = decodeURIComponent(groupParam);
+    }
+  } else {
+    // Check for hidePoints query parameter (legacy support)
+    const hidePointsParam = getQueryParam('hidePoints');
+    if (hidePointsParam === 'true' || hidePointsParam === '1' || hidePointsParam === 'yes') {
+      currentGroupFilter = 'HIDE_ALL';
+    }
   }
   
   // Load and save color groups
@@ -1194,6 +1218,16 @@
       currentGroupFilter = selectedValue;
     }
     
+    // Update query string to reflect the current filter
+    if (currentGroupFilter === 'ALL_GROUPS') {
+      updateQueryParam('group', null);
+    } else if (currentGroupFilter === 'HIDE_ALL') {
+      updateQueryParam('group', 'HIDE_ALL');
+    } else {
+      // Encode the group name for URL
+      updateQueryParam('group', encodeURIComponent(currentGroupFilter));
+    }
+    
     updateSavedPointsList();
   }
   
@@ -1969,12 +2003,23 @@ Leave empty to remove token and switch to read-only mode.`, currentToken);
   
   // Load collapse states from localStorage
   function loadCollapseStates() {
+    // Default collapse states
+    const defaults = {
+      savedPoints: true,  // Collapsed by default
+      legend: false       // Expanded (opened) by default
+    };
+    
     try {
       const saved = localStorage.getItem(COLLAPSE_STATES_KEY);
-      return saved ? JSON.parse(saved) : {};
+      if (saved) {
+        const savedStates = JSON.parse(saved);
+        // Merge defaults with saved states, but only use defaults for keys not in saved states
+        return { ...defaults, ...savedStates };
+      }
+      return defaults;
     } catch (e) {
       console.error('Error loading collapse states:', e);
-      return {};
+      return defaults;
     }
   }
   

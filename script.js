@@ -317,6 +317,18 @@
   
   let currentGroupFilter = 'ALL_GROUPS'; // Show all groups by default
   
+  // Parse query string parameters
+  function getQueryParam(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+  }
+  
+  // Check for hidePoints query parameter
+  const hidePointsParam = getQueryParam('hidePoints');
+  if (hidePointsParam === 'true' || hidePointsParam === '1' || hidePointsParam === 'yes') {
+    currentGroupFilter = 'HIDE_ALL';
+  }
+  
   // Load and save color groups
   function loadColorGroups() {
     try {

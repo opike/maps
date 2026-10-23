@@ -670,8 +670,8 @@
       "id": 1792781464732,
       "lat": 33.5731463,
       "lng": -111.7636636,
-      "name": "Eagle Mountain",
-      "color": "#d62728",
+      "name": "Eagle Mountain Golf Course",
+      "color": "#2ca02c",
       "notes": "",
       "timestamp": "2026-10-23T18:51:04.732Z"
     }
@@ -695,5 +695,5 @@
     "#c49c94": ""
   },
   "version": "1.0",
-  "lastUpdated": "2026-10-23T18:51:04.737Z"
+  "lastUpdated": "2026-10-23T18:51:27.604Z"
 }

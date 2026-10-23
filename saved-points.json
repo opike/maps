@@ -698,7 +698,7 @@
       "lat": 33.1569957,
       "lng": -111.5647334,
       "name": "The Golf Club at Johnson Ranch",
-      "color": "#d62728",
+      "color": "#2ca02c",
       "notes": "",
       "timestamp": "2026-10-23T18:59:34.695Z"
     }
@@ -722,5 +722,5 @@
     "#c49c94": ""
   },
   "version": "1.0",
-  "lastUpdated": "2026-10-23T18:59:34.697Z"
+  "lastUpdated": "2026-10-23T19:00:03.820Z"
 }

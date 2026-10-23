@@ -674,6 +674,15 @@
       "color": "#2ca02c",
       "notes": "",
       "timestamp": "2026-10-23T18:51:04.732Z"
+    },
+    {
+      "id": 1792781507190,
+      "lat": 33.57447500657538,
+      "lng": -111.7496681213379,
+      "name": "FireRock Country Club",
+      "color": "#d62728",
+      "notes": "",
+      "timestamp": "2026-10-23T18:51:47.190Z"
     }
   ],
   "colorGroups": {
@@ -695,5 +704,5 @@
     "#c49c94": ""
   },
   "version": "1.0",
-  "lastUpdated": "2026-10-23T18:51:27.604Z"
+  "lastUpdated": "2026-10-23T18:51:47.193Z"
 }

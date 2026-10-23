@@ -689,7 +689,7 @@
       "lat": 33.7465568,
       "lng": -111.8633506,
       "name": "Troon North Golf Club",
-      "color": "#d62728",
+      "color": "#2ca02c",
       "notes": "",
       "timestamp": "2026-10-23T18:57:29.974Z"
     }
@@ -713,5 +713,5 @@
     "#c49c94": ""
   },
   "version": "1.0",
-  "lastUpdated": "2026-10-23T18:57:29.975Z"
+  "lastUpdated": "2026-10-23T18:57:36.176Z"
 }

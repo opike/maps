@@ -680,7 +680,7 @@
       "lat": 33.57447500657538,
       "lng": -111.7496681213379,
       "name": "FireRock Country Club",
-      "color": "#d62728",
+      "color": "#2ca02c",
       "notes": "",
       "timestamp": "2026-10-23T18:51:47.190Z"
     }
@@ -704,5 +704,5 @@
     "#c49c94": ""
   },
   "version": "1.0",
-  "lastUpdated": "2026-10-23T18:51:47.193Z"
+  "lastUpdated": "2026-10-23T18:52:06.190Z"
 }

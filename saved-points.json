@@ -647,14 +647,167 @@
       "color": "#2ca02c",
       "notes": "",
       "timestamp": "2025-11-11T23:52:33.740Z"
+    },
+    {
+      "id": 1794340292324,
+      "lat": 33.2544987,
+      "lng": -111.8743266,
+      "name": "Ocotillo Golf Club",
+      "color": "#ff7f0e",
+      "timestamp": "2026-11-10T19:51:32.323Z",
+      "notes": "3751 S Clubhouse Dr, Chandler, Arizona"
+    },
+    {
+      "id": 1794340292325,
+      "lat": 33.487571,
+      "lng": -111.9117706,
+      "name": "Continental Golf Club",
+      "color": "#ff7f0e",
+      "timestamp": "2026-11-10T19:51:32.323Z",
+      "notes": "7920 E Osborn Rd, Scottsdale, Arizona"
+    },
+    {
+      "id": 1794340292326,
+      "lat": 33.382362,
+      "lng": -112.004318,
+      "name": "Raven Golf Club",
+      "color": "#ff7f0e",
+      "timestamp": "2026-11-10T19:51:32.323Z",
+      "notes": "3636 E Baseline Rd, Phoenix, Arizona"
+    },
+    {
+      "id": 1794340292327,
+      "lat": 33.6165232,
+      "lng": -111.8529209,
+      "name": "McDowell Mountain Golf Club",
+      "color": "#ff7f0e",
+      "timestamp": "2026-11-10T19:51:32.323Z",
+      "notes": "10690 E Sheena Dr, Scottsdale, Arizona"
+    },
+    {
+      "id": 1794340292328,
+      "lat": 33.3802537,
+      "lng": -111.6924634,
+      "name": "Superstition Springs Golf Club",
+      "color": "#ff7f0e",
+      "timestamp": "2026-11-10T19:51:32.323Z",
+      "notes": "6542 E Baseline Rd, Mesa, Arizona"
+    },
+    {
+      "id": 1794340292329,
+      "lat": 33.596107425804,
+      "lng": -111.983546311907,
+      "name": "Stonecreek Golf Club",
+      "color": "#ff7f0e",
+      "timestamp": "2026-11-10T19:51:32.323Z",
+      "notes": "4435 E Paradise Vlg Pkwy S, Phoenix, Arizona"
+    },
+    {
+      "id": 1794340292330,
+      "lat": 33.6785566,
+      "lng": -112.2002028,
+      "name": "The Legend at Arrowhead",
+      "color": "#ff7f0e",
+      "timestamp": "2026-11-10T19:51:32.323Z",
+      "notes": "21027 N 67th Ave, Glendale, Arizona"
+    },
+    {
+      "id": 1794340292331,
+      "lat": 33.4720664,
+      "lng": -112.3454989,
+      "name": "Palm Valley Golf Club",
+      "color": "#ff7f0e",
+      "timestamp": "2026-11-10T19:51:32.323Z",
+      "notes": "2211 N Litchfield Rd, Goodyear, Arizona"
+    },
+    {
+      "id": 1794340292332,
+      "lat": 33.3666235,
+      "lng": -111.8301956,
+      "name": "Kokopelli Golf Club",
+      "color": "#ff7f0e",
+      "timestamp": "2026-11-10T19:51:32.323Z",
+      "notes": "1800 W Guadalupe Rd, Gilbert, Arizona"
+    },
+    {
+      "id": 1794340292333,
+      "lat": 33.4577917,
+      "lng": -111.960281,
+      "name": "Papago Golf Course",
+      "color": "#9467bd",
+      "timestamp": "2026-11-19T22:50:00.000Z",
+      "notes": "5595 E Karsten Way, Phoenix, Arizona"
+    },
+    {
+      "id": 1794340292334,
+      "lat": 33.5280515,
+      "lng": -112.0906926,
+      "name": "Palo Verde Executive Golf Course",
+      "color": "#9467bd",
+      "timestamp": "2026-11-19T22:50:00.000Z",
+      "notes": "6215 N 15th Ave, Phoenix, Arizona"
+    },
+    {
+      "id": 1794340292335,
+      "lat": 33.6182226,
+      "lng": -112.1057629,
+      "name": "Cave Creek Golf Course",
+      "color": "#9467bd",
+      "timestamp": "2026-11-19T22:50:00.000Z",
+      "notes": "15202 N 19th Ave, Phoenix, Arizona"
+    },
+    {
+      "id": 1794340292336,
+      "lat": 33.4975907,
+      "lng": -112.1908044,
+      "name": "Grand Canyon University Golf Course",
+      "color": "#9467bd",
+      "timestamp": "2026-11-19T22:50:00.000Z",
+      "notes": "5902 W Indian School Rd, Phoenix, Arizona"
+    },
+    {
+      "id": 1794340292337,
+      "lat": 33.4752685,
+      "lng": -112.0971706,
+      "name": "Encanto 9 Hole Golf Course",
+      "color": "#9467bd",
+      "timestamp": "2026-11-19T22:50:00.000Z",
+      "notes": "2300 N 17th Ave, Phoenix, Arizona"
+    },
+    {
+      "id": 1794340292338,
+      "lat": 33.4783048,
+      "lng": -112.0909549,
+      "name": "Encanto 18 Hole Golf Course",
+      "color": "#9467bd",
+      "timestamp": "2026-11-19T22:50:00.000Z",
+      "notes": "2775 N 15th Ave, Phoenix, Arizona"
+    },
+    {
+      "id": 1794340292339,
+      "lat": 33.3679337,
+      "lng": -112.1399319,
+      "name": "Aguila 18 Hole Golf Course",
+      "color": "#9467bd",
+      "timestamp": "2026-11-19T22:50:00.000Z",
+      "notes": "8440 S 35th Ave, Laveen, Arizona"
+    },
+    {
+      "id": 1794340292340,
+      "lat": 33.36855,
+      "lng": -112.1387,
+      "name": "Aguila 9 Hole Golf Course",
+      "color": "#9467bd",
+      "timestamp": "2026-11-19T22:50:00.000Z",
+      "notes": "8440 S 35th Ave, Laveen, Arizona. Same clubhouse as the 18-hole course."
     }
   ],
   "colorGroups": {
     "#d62728": "",
     "#2ca02c": "Golf Course",
     "#1f77b4": "BNI",
-    "#ff7f0e": "",
-    "#9467bd": "",
+    "#ff7f0e": "arcis courses",
+    "#9467bd": "Phoenix City Card",
     "#8c564b": "",
     "#e377c2": "",
     "#7f7f7f": "",
@@ -668,5 +821,5 @@
     "#c49c94": ""
   },
   "version": "1.0",
-  "lastUpdated": "2025-11-11T23:52:51.172Z"
+  "lastUpdated": "2026-11-19T22:50:00.000Z"
 }

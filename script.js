@@ -300,8 +300,8 @@
     '#d62728': '',
     '#2ca02c': 'Golf Course',
     '#1f77b4': '',
-    '#ff7f0e': '',
-    '#9467bd': '',
+    '#ff7f0e': 'arcis courses',
+    '#9467bd': 'Phoenix City Card',
     '#8c564b': '',
     '#e377c2': '',
     '#7f7f7f': '',
@@ -316,6 +316,7 @@
   };
   
   let currentGroupFilter = 'ALL_GROUPS'; // Show all groups by default
+  const UNGROUPED_FILTER = 'UNGROUPED';
   
   // Parse query string parameters
   function getQueryParam(name) {
@@ -339,6 +340,8 @@
   if (groupParam !== null) {
     if (groupParam === 'HIDE_ALL' || groupParam === 'hide') {
       currentGroupFilter = 'HIDE_ALL';
+    } else if (groupParam === UNGROUPED_FILTER || groupParam === 'ungrouped') {
+      currentGroupFilter = UNGROUPED_FILTER;
     } else if (groupParam === '' || groupParam === 'all') {
       currentGroupFilter = 'ALL_GROUPS';
     } else {
@@ -471,7 +474,10 @@
     try {
       // Use GitHub raw URL with cache busting via URL parameter
       // No custom headers to avoid CORS preflight issues with external scripts
-      const url = 'https://raw.githubusercontent.com/opike/maps/main/saved-points.json?t=' + Date.now();
+      const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const url = (isLocal
+        ? 'saved-points.json?t='
+        : 'https://raw.githubusercontent.com/opike/maps/main/saved-points.json?t=') + Date.now();
       
       console.log('loadDataFromGitHub: Fetching from:', url);
       
@@ -616,6 +622,93 @@
     return merged;
   }
   
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function buildPointPopupHtml(point, readOnly) {
+    const notes = escapeHtml(point.notes || '');
+    const name = escapeHtml(point.name || '');
+    const saved = escapeHtml(new Date(point.timestamp).toLocaleString());
+    const notesBlock = readOnly
+      ? (point.notes ? `<div class="point-notes-text">${notes}</div>` : '')
+      : `<label class="point-notes-label" for="point-notes-${point.id}">Notes</label>
+         <textarea id="point-notes-${point.id}" class="point-notes-input" placeholder="Add notes..." rows="3">${notes}</textarea>`;
+    const actions = readOnly
+      ? `<div class="point-popup-readonly">Read-only mode</div>`
+      : `<div class="point-popup-actions">
+           <button type="button" class="point-edit-button" onclick="editSavedPoint(${point.id})">Edit</button>
+           <button type="button" class="point-remove-button" onclick="removeSavedPoint(${point.id})">Remove</button>
+         </div>`;
+
+    return `<div class="point-popup">
+      <strong>${name}</strong>
+      ${notesBlock}
+      <div class="point-popup-saved">Saved: ${saved}</div>
+      ${actions}
+    </div>`;
+  }
+
+  function savePointNotes(pointId, notes) {
+    const savedPoints = loadSavedPoints();
+    const point = savedPoints.find(p => p.id === pointId);
+    if (!point) return;
+
+    const nextNotes = String(notes ?? '').trim();
+    if ((point.notes || '') === nextNotes) return;
+
+    point.notes = nextNotes;
+    saveSavedPoints(savedPoints);
+    updateSavedPointsList();
+    autoSaveToGitHub();
+  }
+
+  function readPopupNotes(popup) {
+    const popupEl = popup && popup.getElement && popup.getElement();
+    const field = popupEl && popupEl.querySelector('.point-notes-input');
+    return field ? field.value : null;
+  }
+
+  function bindSavedPointPopup(marker, point, readOnly) {
+    if (marker._notesOpenHandler) {
+      marker.off('popupopen', marker._notesOpenHandler);
+      marker.off('popupclose', marker._notesCloseHandler);
+      marker._notesOpenHandler = null;
+      marker._notesCloseHandler = null;
+    }
+
+    marker.bindPopup(buildPointPopupHtml(point, readOnly), { minWidth: 220, maxWidth: 280 });
+    if (readOnly) return;
+
+    marker._notesOpenHandler = function(event) {
+      const popupEl = event.popup && event.popup.getElement();
+      const field = popupEl && popupEl.querySelector('.point-notes-input');
+      if (!field || field.dataset.notesBound === '1') return;
+      field.dataset.notesBound = '1';
+      const save = () => savePointNotes(point.id, field.value);
+      field.addEventListener('change', save);
+      field.addEventListener('blur', save);
+    };
+    marker._notesCloseHandler = function(event) {
+      const notes = readPopupNotes(event.popup);
+      if (notes !== null) savePointNotes(point.id, notes);
+      setTimeout(() => {
+        const popup = marker.getPopup();
+        if (popup && popup.isOpen()) return;
+        const current = loadSavedPoints().find(p => p.id === point.id);
+        if (current) bindSavedPointPopup(marker, current, isReadOnlyMode());
+      }, 0);
+    };
+    marker.on('popupopen', marker._notesOpenHandler);
+    marker.on('popupclose', marker._notesCloseHandler);
+  }
+
+  window.savePointNotes = savePointNotes;
+
   // Add a saved point
   function addSavedPoint(lat, lng, name = '', color = '#d62728', notes = '') {
     const point = {
@@ -638,15 +731,7 @@
       icon: createColoredMarkerIcon(point.color)
     }).addTo(map);
     
-    marker.bindPopup(`
-      <div>
-        <strong>${point.name}</strong><br>
-        ${point.notes ? `<div style="font-size: 12px; color: #666; margin: 4px 0;">${point.notes}</div>` : ''}
-        <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
-        <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
-        <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
-      </div>
-    `);
+    bindSavedPointPopup(marker, point, false);
     
     // Update marker position when dragged
     marker.on('dragend', function() {
@@ -761,31 +846,7 @@
         icon: createColoredMarkerIcon(point.color)
       }).addTo(map);
       
-      // Build popup content based on permissions
-      let popupContent = `
-        <div>
-          <strong>${point.name}</strong><br>
-          ${point.notes ? `<div style="font-size: 12px; color: #666; margin: 4px 0;">${point.notes}</div>` : ''}
-          <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
-      `;
-      
-      if (!readOnly) {
-        // Show edit/remove buttons only if user has permission
-        popupContent += `
-          <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
-          <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
-        `;
-      } else {
-        // Show read-only indicator
-        popupContent += `
-          <div style="margin-top: 5px; font-size: 10px; color: #999; font-style: italic;">
-            📖 Read-only mode
-          </div>
-        `;
-      }
-      
-      popupContent += `</div>`;
-      marker.bindPopup(popupContent);
+      bindSavedPointPopup(marker, point, readOnly);
       
       if (!readOnly) {
         marker.on('dragend', function() {
@@ -812,6 +873,9 @@
     if (groupFilter === 'HIDE_ALL') {
       // Return empty array to hide all points
       return [];
+    } else if (groupFilter === UNGROUPED_FILTER) {
+      const colorGroups = loadColorGroups();
+      filteredPoints = filteredPoints.filter(point => !(colorGroups[point.color] || '').trim());
     } else if (groupFilter !== null && groupFilter !== undefined && groupFilter !== 'ALL_GROUPS') {
       // Apply group filter for specific groups
       const colorGroups = loadColorGroups();
@@ -1150,16 +1214,7 @@
           marker.setIcon(createColoredMarkerIcon(newColor));
         }
         
-        // Update popup content
-        marker.bindPopup(`
-          <div>
-            <strong>${point.name}</strong><br>
-            ${point.notes ? `<div style="font-size: 12px; color: #666; margin: 4px 0;">${point.notes}</div>` : ''}
-            <small>Saved: ${new Date(point.timestamp).toLocaleString()}</small><br>
-            <button onclick="editSavedPoint(${point.id})" style="margin-top: 5px; margin-right: 5px; padding: 2px 6px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Edit</button>
-            <button onclick="removeSavedPoint(${point.id})" style="margin-top: 5px; padding: 2px 6px; font-size: 11px; background: #d62728; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
-          </div>
-        `);
+        bindSavedPointPopup(marker, point, isReadOnlyMode());
       }
       
       // Update the saved points list
@@ -1210,10 +1265,12 @@
     const selectedValue = groupSelect.value;
     
     // Handle special filter values
-    if (selectedValue === '') {
+    if (selectedValue === '' || selectedValue === 'ALL_GROUPS') {
       currentGroupFilter = 'ALL_GROUPS';
     } else if (selectedValue === 'HIDE_ALL') {
       currentGroupFilter = 'HIDE_ALL';
+    } else if (selectedValue === UNGROUPED_FILTER) {
+      currentGroupFilter = UNGROUPED_FILTER;
     } else {
       currentGroupFilter = selectedValue;
     }
@@ -1223,6 +1280,8 @@
       updateQueryParam('group', null);
     } else if (currentGroupFilter === 'HIDE_ALL') {
       updateQueryParam('group', 'HIDE_ALL');
+    } else if (currentGroupFilter === UNGROUPED_FILTER) {
+      updateQueryParam('group', UNGROUPED_FILTER);
     } else {
       // Encode the group name for URL
       updateQueryParam('group', encodeURIComponent(currentGroupFilter));
@@ -1257,9 +1316,10 @@
     
     // Add options for each unique group name
     Object.entries(groupsByName).forEach(([name, colors]) => {
-      const selected = currentGroupFilter === name ? 'selected' : '';
+      const optionValue = name === '' ? UNGROUPED_FILTER : name;
+      const selected = currentGroupFilter === optionValue ? 'selected' : '';
       const displayName = name === '' ? '(Ungrouped)' : name;
-      options += `<option value="${name}" ${selected}>${displayName}</option>`;
+      options += `<option value="${optionValue}" ${selected}>${displayName}</option>`;
     });
     
     // Handle special selections

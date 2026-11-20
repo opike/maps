@@ -649,6 +649,42 @@
       "timestamp": "2025-11-11T23:52:33.740Z"
     },
     {
+      "id": 1792781464732,
+      "lat": 33.5731463,
+      "lng": -111.7636636,
+      "name": "Eagle Mountain Golf Course",
+      "color": "#2ca02c",
+      "notes": "",
+      "timestamp": "2026-10-23T18:51:04.732Z"
+    },
+    {
+      "id": 1792781507190,
+      "lat": 33.57447500657538,
+      "lng": -111.7496681213379,
+      "name": "FireRock Country Club",
+      "color": "#2ca02c",
+      "notes": "",
+      "timestamp": "2026-10-23T18:51:47.190Z"
+    },
+    {
+      "id": 1792781849974,
+      "lat": 33.7465568,
+      "lng": -111.8633506,
+      "name": "Troon North Golf Club",
+      "color": "#2ca02c",
+      "notes": "",
+      "timestamp": "2026-10-23T18:57:29.974Z"
+    },
+    {
+      "id": 1792781974695,
+      "lat": 33.1569957,
+      "lng": -111.5647334,
+      "name": "The Golf Club at Johnson Ranch",
+      "color": "#2ca02c",
+      "notes": "",
+      "timestamp": "2026-10-23T18:59:34.695Z"
+    },
+    {
       "id": 1794340292324,
       "lat": 33.2544987,
       "lng": -111.8743266,
@@ -821,5 +857,5 @@
     "#c49c94": ""
   },
   "version": "1.0",
-  "lastUpdated": "2026-11-19T22:50:00.000Z"
+  "lastUpdated": "2026-11-20T17:54:52.392Z"
 }

@@ -836,6 +836,15 @@
       "color": "#9467bd",
       "timestamp": "2026-11-19T22:50:00.000Z",
       "notes": "8440 S 35th Ave, Laveen, Arizona. Same clubhouse as the 18-hole course."
+    },
+    {
+      "id": 1795475823938,
+      "lat": 33.3661939,
+      "lng": -111.9736431,
+      "name": "Arizona Grand Golf Course",
+      "color": "#d62728",
+      "notes": "",
+      "timestamp": "2026-11-23T23:17:03.938Z"
     }
   ],
   "colorGroups": {
@@ -857,5 +866,5 @@
     "#c49c94": ""
   },
   "version": "1.0",
-  "lastUpdated": "2026-11-20T17:54:52.392Z"
+  "lastUpdated": "2026-11-23T23:17:03.941Z"
 }

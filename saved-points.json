@@ -842,7 +842,7 @@
       "lat": 33.3661939,
       "lng": -111.9736431,
       "name": "Arizona Grand Golf Course",
-      "color": "#d62728",
+      "color": "#2ca02c",
       "notes": "",
       "timestamp": "2026-11-23T23:17:03.938Z"
     }
@@ -866,5 +866,5 @@
     "#c49c94": ""
   },
   "version": "1.0",
-  "lastUpdated": "2026-11-23T23:17:03.941Z"
+  "lastUpdated": "2026-11-23T23:18:14.039Z"
 }
